@@ -1,6 +1,4 @@
-from genericpath import isfile
 import os
-from typing_extensions import LiteralString
 
 DATABASE_PATH = "./database"
 ANALYSIS_DIR_NAME = "analysis"

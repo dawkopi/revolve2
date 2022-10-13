@@ -27,7 +27,7 @@ async def main() -> None:
     parser.add_argument("--sampling_frequency", type=int, default=10)
     parser.add_argument("--control_frequency", type=int, default=10)
     parser.add_argument("-p", "--population_size", type=int, default=10)
-    parser.add_argument("--offspring_size", type=int, default=10)
+    parser.add_argument("--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
@@ -113,7 +113,9 @@ async def main() -> None:
             sampling_frequency=args.sampling_frequency,
             control_frequency=args.control_frequency,
             num_generations=args.num_generations,
-            offspring_size=args.offspring_size,
+            offspring_size=args.population_size
+            if args.offspring_size is None
+            else args.offspring_size,
         )
 
     logging.info("Starting optimization process...")
