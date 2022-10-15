@@ -32,6 +32,9 @@ async def main() -> None:
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument(
+        "-f", "--fitness_function", default="displacement_height_groundcontact"
+    )
     args = parser.parse_args()
 
     ensure_dirs(DATABASE_PATH)
@@ -116,6 +119,7 @@ async def main() -> None:
             offspring_size=args.population_size
             if args.offspring_size is None
             else args.offspring_size,
+            fitness_function=args.fitness_function,
         )
 
     logging.info("Starting optimization process...")
