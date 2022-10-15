@@ -231,27 +231,41 @@ class Optimizer(EAOptimizer[Genotype, float]):
     ) -> Tuple[List[int], List[int]]:
         assert len(old_individuals) == num_survivors
 
-        return population_management.steady_state(
-            old_individuals,
-            old_fitnesses,
+        elite_size = len(old_individuals) // 5
+        non_elite_size = len(old_individuals) - elite_size
+
+        old_survivors = selection.topn(elite_size, old_individuals, old_fitnesses)
+        new_survivors = selection.multiple_unique(
+            non_elite_size,
             new_individuals,
             new_fitnesses,
-            lambda n, genotypes, fitnesses: selection.multiple_unique(
-                n,
-                genotypes,
-                fitnesses,
-                lambda genotypes, fitnesses: selection.tournament(
-                    self._rng, fitnesses, k=2
-                ),
-            ),
+            lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=2),
         )
+
+        return old_survivors, new_survivors
+
+        # return population_management.steady_state(
+        #     old_individuals,
+        #     old_fitnesses,
+        #     new_individuals,
+        #     new_fitnesses,
+        #     lambda n, genotypes, fitnesses: selection.multiple_unique(
+        #         n,
+        #         genotypes,
+        #         fitnesses,
+        #         lambda genotypes, fitnesses: selection.tournament(
+        #             self._rng, fitnesses, k=2
+        #         ),
+        #     ),
+        # )
 
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
     def _crossover(self, parents: List[Genotype]) -> Genotype:
         assert len(parents) == 2
-        return crossover(parents[0], parents[1], self._rng)
+        return parents[0]
+        # return crossover(parents[0], parents[1], self._rng)
 
     def _mutate(self, genotype: Genotype) -> Genotype:
         return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)

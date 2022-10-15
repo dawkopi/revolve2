@@ -37,6 +37,10 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    args.offspring_size = (
+        args.population_size if args.offspring_size is None else args.offspring_size
+    )
+
     ensure_dirs(DATABASE_PATH)
 
     wandb.init(
@@ -116,9 +120,7 @@ async def main() -> None:
             sampling_frequency=args.sampling_frequency,
             control_frequency=args.control_frequency,
             num_generations=args.num_generations,
-            offspring_size=args.population_size
-            if args.offspring_size is None
-            else args.offspring_size,
+            offspring_size=args.population_size,
             fitness_function=args.fitness_function,
         )
 
