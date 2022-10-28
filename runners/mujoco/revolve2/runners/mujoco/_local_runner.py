@@ -100,9 +100,12 @@ class LocalRunner(Runner):
             while (time := data.time) < batch.simulation_time:
                 # do control if it is time
                 if time >= last_control_time + control_step:
+                    env_state = EnvironmentState(
+                        time, self._get_actor_states(env_descr, data, model)
+                    )
                     last_control_time = math.floor(time / control_step) * control_step
                     control = ActorControl()
-                    batch.control(env_index, control_step, control)
+                    batch.control(env_index, control_step, control, env_state)
                     actor_targets = control._dof_targets
                     actor_targets.sort(key=lambda t: t[0])
                     targets = [

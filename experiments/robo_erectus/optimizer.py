@@ -11,6 +11,7 @@ import multineat
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
+from controllers.CppnController import CppnController
 from measures import *
 from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
 from pyrr import Quaternion, Vector3
@@ -21,7 +22,7 @@ from revolve2.core.optimization import ProcessIdGen
 from revolve2.core.optimization.ea.generic_ea import EAOptimizer
 from revolve2.core.physics.running import (
     ActorControl,
-    ActorState,
+    EnvironmentState,
     Batch,
     Environment,
     PosedActor,
@@ -273,8 +274,21 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._controllers = []
 
         for genotype in genotypes:
-            # here the actual controllers are created:
-            actor, controller = develop(genotype).make_actor_and_controller()
+            from revolve2.genotypes.cppnwin.modular_robot.body_genotype_v1 import (
+                develop_v1 as body_develop,
+            )
+
+            body = body_develop(genotype.body)
+            brain = CppnController(genotype.brain.genotype)
+
+            actor, dof_ids = body.to_actor()
+            controller = brain.make_controller(body, dof_ids)
+            ##
+            controller.body = body
+            controller.brain = brain
+            controller.dof_ids = dof_ids
+            ##
+
             bounding_box = actor.calc_aabb()
             self._controllers.append(controller)
             env = Environment()
@@ -296,7 +310,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         batch_results = await self._runner.run_batch(batch)
 
-        print(self._fitness_function)
         fitness = [
             fitness_functions[self._fitness_function](environment_result)
             for environment_result, environment in zip(
@@ -334,10 +347,18 @@ class Optimizer(EAOptimizer[Genotype, float]):
         return fitness
 
     def _control(
-        self, environment_index: int, dt: float, control: ActorControl
+        self,
+        environment_index: int,
+        dt: float,
+        control: ActorControl,
+        state: EnvironmentState,
     ) -> None:
         """controller for batch that influnces models in simulation"""
         controller = self._controllers[environment_index]
+        controller = controller.brain.make_controller(
+            controller.body, controller.dof_ids
+        )
+
         controller.step(dt)
         control.set_dof_targets(0, controller.get_dof_targets())
 
