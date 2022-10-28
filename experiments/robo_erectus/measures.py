@@ -1,3 +1,4 @@
+"""Implement some functions for measuring fitness aspects."""
 import logging
 import math
 from typing import Union
@@ -7,6 +8,7 @@ from revolve2.core.physics.running._results import EnvironmentResults
 
 
 def displacement_measure(environment_results: EnvironmentResults) -> float:
+    """Measure how far robot moved from start to end of simulation."""
     begin_state = environment_results.environment_states[0].actor_states[0]
     end_state = environment_results.environment_states[-1].actor_states[0]
     distance = math.sqrt(
@@ -19,6 +21,7 @@ def displacement_measure(environment_results: EnvironmentResults) -> float:
 def max_height_relative_to_avg_height_measure(
     environment_results: EnvironmentResults,
 ) -> float:
+    """Attempt to discourage jumping behavior."""
     heights = [
         environment_results.environment_states[i + 1].actor_states[0].position[2]
         for i in range(len(environment_results.environment_states) - 1)
@@ -29,7 +32,9 @@ def max_height_relative_to_avg_height_measure(
 def ground_contact_measure(
     environment_results: EnvironmentResults,
 ) -> Union[float, None]:
-    """Returns a score in [0,1] indicating how well contact with the ground was minimized (1.0 being ideal).
+    """
+    Return a score in [0,1] indicating how well contact with the ground was minimized (1.0 being ideal).
+
     The percent of time each geometry within the Actor was in contact with the ground is tabulated.
     The top two geometries with the most ground contact are considered the "feet" and aren't penalized.
     """

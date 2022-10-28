@@ -16,7 +16,6 @@ from utilities import *
 
 async def main() -> None:
     """Run the optimization process."""
-
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--run_name", type=str, default="default")
     parser.add_argument("-l", "--resume_latest", action="store_true")

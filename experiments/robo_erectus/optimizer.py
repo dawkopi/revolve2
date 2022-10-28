@@ -341,7 +341,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
     def _control(
         self, environment_index: int, dt: float, control: ActorControl
     ) -> None:
-        """controller for batch that influnces models in simulation"""
+        """Set up controller for batch that influnces models in simulation."""
         controller = self._controllers[environment_index]
         controller.step(dt)
         control.set_dof_targets(0, controller.get_dof_targets())
@@ -366,6 +366,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
 def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
     """
     Given an actor, return a pose (such that it starts out "standing" upright).
+
     Returns tuple (pos, rot).
     """
     bounding_box = actor.calc_aabb()

@@ -53,14 +53,15 @@ class ModularRobotRerunner:
         robot: ModularRobot,
         get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
     ) -> Environment:
-        """Constructs an Environment object and contoller for a single robot.
+        """
+        Construct an Environment object and contoller for a single robot.
+
         params:
             robot: ModularRobot to create Environment for
             get_pose: optional function for computing the initial pose of the robot
         """
         actor, controller = robot.make_actor_and_controller()
         env = Environment()
-        start_height = 1.5  # TODO consider calculating length of robot and add a slight offset of 0.1m?
         pos, rot = Vector3([0.0, 0.0, 0.1]), Quaternion()
         if get_pose is not None:
             pos, rot = get_pose(actor)
