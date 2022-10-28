@@ -1,5 +1,7 @@
 """Rerun(watch) a modular robot in Mujoco."""
 
+from typing import Callable, Tuple
+
 import numpy as np
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
@@ -7,7 +9,6 @@ from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
 from revolve2.runners.mujoco import LocalRunner
-from typing import Callable, Tuple
 
 
 class ModularRobotRerunner:

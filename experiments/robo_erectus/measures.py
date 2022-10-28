@@ -1,8 +1,9 @@
+import logging
 import math
+from typing import Union
+
 from numpy import average
 from revolve2.core.physics.running._results import EnvironmentResults
-from typing import Union
-import logging
 
 
 def displacement_measure(environment_results: EnvironmentResults) -> float:

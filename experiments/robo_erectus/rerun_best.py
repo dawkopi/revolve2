@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Visualize and simulate the best robot from the optimization process."""
 
-import os
 import argparse
+import os
+
 from genotype import GenotypeSerializer, develop
 from optimizer import actor_get_standing_pose
-from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
+from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.optimization.ea.generic_ea import DbEAOptimizerIndividual
-from revolve2.runners.mujoco import ModularRobotRerunner
+from revolve2.runners.mujoco import LocalRunner, ModularRobotRerunner
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
-from revolve2.runners.mujoco import LocalRunner
 from utilities import *
 
 

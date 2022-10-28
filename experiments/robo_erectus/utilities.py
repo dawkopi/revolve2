@@ -1,5 +1,6 @@
-from genericpath import isfile
 import os
+
+from genericpath import isfile
 from typing_extensions import LiteralString
 
 DATABASE_PATH = "./database"

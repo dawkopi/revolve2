@@ -1,5 +1,5 @@
-from revolve2.core.physics.running._results import EnvironmentResults
 import measures
+from revolve2.core.physics.running._results import EnvironmentResults
 
 
 def displacement_height_groundcontact(environment_results: EnvironmentResults) -> float:
