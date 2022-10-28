@@ -3,8 +3,8 @@
 import multineat
 from revolve2.core.modular_robot import Body
 
-from genotypes.cppnwin.revolve2.genotypes.cppnwin._genotype import Genotype
-from genotypes.cppnwin.revolve2.genotypes.cppnwin._random_v1 import (
+from revolve2.genotypes.cppnwin._genotype import Genotype
+from revolve2.genotypes.cppnwin._random_v1 import (
     random_v1 as base_random_v1,
 )
 from ._brain_cpg_network_neighbour_v1 import (

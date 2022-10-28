@@ -18,6 +18,7 @@ class CpgActorController(ActorController):
     """
 
     _state: npt.NDArray[np.float_]
+    _output: npt.NDArray[np.float_]
     _num_output_neurons: int
     # nxn matrix matching number of neurons
     _weight_matrix: npt.NDArray[np.float_]
@@ -48,6 +49,7 @@ class CpgActorController(ActorController):
         assert sensor_weights.shape[0] == state.shape[0] / 2
 
         self._state = state
+        self._output = self._state
         self._num_output_neurons = num_output_neurons
         self._weight_matrix = weight_matrix
         self._dof_ranges = dof_ranges
@@ -60,7 +62,10 @@ class CpgActorController(ActorController):
         :param dt: The number of seconds to step forward.
         """
         self._state = self._rk45(self._state, self._weight_matrix, dt)
-        self._state = self.add_sensor_feedback(self._state, sensor_inputs)
+        self._output = self.add_sensor_feedback(self._state, sensor_inputs)
+        # a = self.get_dof_targets()
+        # print(f"outputs: {a}")
+        # print("-------------------------")
 
     @staticmethod
     def _rk45(
@@ -77,6 +82,7 @@ class CpgActorController(ActorController):
         return state + dt / 6 * (A1 + 2 * (A2 + A3) + A4)
 
     def add_sensor_feedback(self, states, sensor_inputs):
+        outputs = states
         sensor_inputs = np.array(sensor_inputs)
         # sensor_inputs * sensor weights --> sensor feedbacks, then pad it to the size of states
         # this is how states looks like: [x1, x2, x3, ..., xn, y1, y2, y3, ..., yn]
@@ -85,10 +91,14 @@ class CpgActorController(ActorController):
             (0, sensor_inputs.shape[0]),
             "constant",
         )
-        states = states + feedback
+        # print(f"states: {states}")
+        # print(f"feedback: {feedback}")
+        feedback = 2 / (1 + np.exp(-2 * feedback)) - 1
+        outputs = outputs + feedback
         # TODO not sure if directly adding feedback and then pass a sigmoid function is a proper way to adjust dof targets
-        states = 2 / (1 + np.exp(-2 * states)) - 1
-        return states
+        # print(f"outputs: {outputs}")
+        # print("-------------------------")
+        return outputs
 
     def get_dof_targets(self) -> List[float]:
         """
@@ -100,7 +110,7 @@ class CpgActorController(ActorController):
         """
         return list(
             np.clip(
-                self._state[0 : self._num_output_neurons],
+                self._output[0 : self._num_output_neurons],
                 a_min=-self._dof_ranges,
                 a_max=self._dof_ranges,
             )

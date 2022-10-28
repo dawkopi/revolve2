@@ -8,7 +8,10 @@ from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
 from revolve2.core.optimization.ea.generic_ea import DbEAOptimizerIndividual
-from revolve2.runners.mujoco import ModularRobotRerunner
+from revolve2.runners.mujoco import ModularRobotRerunner as reruner
+from sensor_feedback_lib._modular_robot_rerunner import (
+    ModularRobotRerunner as feedback_reruner,
+)
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 from revolve2.runners.mujoco import LocalRunner
@@ -29,6 +32,7 @@ async def main() -> None:
     )
     parser.add_argument("-l", "--load_latest", action="store_true")
     parser.add_argument("-n", "--run_name", type=str, default="default")
+    parser.add_argument("--use_feedback", action="store_true")
     args = parser.parse_args()
 
     ensure_dirs(DATABASE_PATH)
@@ -68,10 +72,14 @@ async def main() -> None:
             )
         )[0]
 
-    rerunner = ModularRobotRerunner()
+    if args.use_feedback:
+        rerunner = feedback_reruner()
+        print("***************")
+    else:
+        rerunner = reruner()
 
-    robot: ModularRobot = develop(genotype)
-    env, _ = ModularRobotRerunner.robot_to_env(robot)
+    robot: ModularRobot = develop(genotype, args.use_feedback)
+    env, _ = reruner.robot_to_env(robot)
 
     # output env to a MJCF (xml) file (based on LocalRunner.run_batch())
     xml_string = LocalRunner._make_mjcf(env)

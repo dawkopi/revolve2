@@ -4,7 +4,7 @@ from typing import List
 
 import mujoco
 import mujoco_viewer
-from experiments.robo_erectus.sensor_feedback_lib._sensor import SensorData
+from ._sensor import SensorData
 
 try:
     import logging
