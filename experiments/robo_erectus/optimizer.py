@@ -11,7 +11,7 @@ import multineat
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
-from controllers.CppnController import CppnController
+from controllers.cppn_controller import CppnController
 from measures import *
 from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
 from pyrr import Quaternion, Vector3
