@@ -60,7 +60,7 @@ def ground_contact_measure(
 
     ranked_nonfeet = ranked_ids[2:]
 
-    logging.debug("tabulated geom_data:")
+    logging.debug(f"tabulated geom_data (num actor_states = {len(actor_states)}):")
     logging.debug(geom_data)
     # weights determining important of penalizing most active non-foot, vs penalizing average of ALL non-feet
     w1, w2 = (0.6, 0.4)  # should sum to 1.0

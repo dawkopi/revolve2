@@ -4,6 +4,7 @@
 import os
 import argparse
 from genotype import GenotypeSerializer, develop
+from optimizer import actor_get_standing_pose
 from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
@@ -71,7 +72,7 @@ async def main() -> None:
     rerunner = ModularRobotRerunner()
 
     robot: ModularRobot = develop(genotype)
-    env, _ = ModularRobotRerunner.robot_to_env(robot)
+    env, _ = ModularRobotRerunner.robot_to_env(robot, actor_get_standing_pose)
 
     # output env to a MJCF (xml) file (based on LocalRunner.run_batch())
     xml_string = LocalRunner._make_mjcf(env)
