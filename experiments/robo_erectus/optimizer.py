@@ -1,24 +1,27 @@
 """Optimizer for finding a good modular robot body and brain using CPPNWIN genotypes and simulation using mujoco."""
 
-import math
 import logging
+import math
 import pickle
-import wandb
 from random import Random
 from typing import List, Tuple
 
 import multineat
+import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
-from measures import *
+import wandb
+from fitness import fitness_functions
 from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
+from measures import *
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
 from revolve2.core.database import IncompatibleError
 from revolve2.core.database.serializers import FloatSerializer
 from revolve2.core.optimization import ProcessIdGen
 from revolve2.core.optimization.ea.generic_ea import EAOptimizer
+from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import (
     ActorControl,
     ActorState,
@@ -33,7 +36,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
-from fitness import fitness_functions
 
 
 class Optimizer(EAOptimizer[Genotype, float]):
@@ -62,6 +64,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
     _fitness_function: str
 
+    _headless: bool = True  # whether to hide sim GUI
+
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
         database: AsyncEngine,
@@ -78,6 +82,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         num_generations: int,
         offspring_size: int,
         fitness_function: str,
+        headless: bool = True,
     ) -> None:
         """
         Initialize this class async.
@@ -112,6 +117,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         )
 
         self._process_id = process_id
+        self._headless = headless
         self._init_runner()
         self._innov_db_body = innov_db_body
         self._innov_db_brain = innov_db_brain
@@ -138,6 +144,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         rng: Random,
         innov_db_body: multineat.InnovationDatabase,
         innov_db_brain: multineat.InnovationDatabase,
+        headless: bool = True,
     ) -> bool:
         """
         Try to initialize this class async from a database.
@@ -167,6 +174,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
             return False
 
         self._process_id = process_id
+        self._headless = headless
         self._init_runner()
 
         opt_row = (
@@ -202,8 +210,9 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         return True
 
-    def _init_runner(self, headless=True) -> None:
-        self._runner = LocalRunner(headless=headless)
+    def _init_runner(self) -> None:
+        logging.info(f"initalizing runner (headless={self._headless})")
+        self._runner = LocalRunner(headless=self._headless)
 
     def _select_parents(
         self,
@@ -275,20 +284,16 @@ class Optimizer(EAOptimizer[Genotype, float]):
         for genotype in genotypes:
             # here the actual controllers are created:
             actor, controller = develop(genotype).make_actor_and_controller()
-            bounding_box = actor.calc_aabb()
+            # bounding_box = actor.calc_aabb()
             self._controllers.append(controller)
+            # pos, rot = actor_get_default_pose(actor)
+            pos, rot = actor_get_standing_pose(actor)
             env = Environment()
             env.actors.append(
                 PosedActor(
                     actor,
-                    Vector3(
-                        [
-                            0.0,
-                            0.0,
-                            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-                        ]
-                    ),
-                    Quaternion(),
+                    pos,
+                    rot,
                     [0.0 for _ in controller.get_dof_targets()],
                 ),
             )
@@ -336,7 +341,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
     def _control(
         self, environment_index: int, dt: float, control: ActorControl
     ) -> None:
-        """controller for batch that influnces models in simulation"""
+        """Set up controller for batch that influnces models in simulation."""
         controller = self._controllers[environment_index]
         controller.step(dt)
         control.set_dof_targets(0, controller.get_dof_targets())
@@ -356,6 +361,39 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 fitness_function=self._fitness_function,
             )
         )
+
+
+def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
+    """
+    Given an actor, return a pose (such that it starts out "standing" upright).
+
+    Returns tuple (pos, rot).
+    """
+    bounding_box = actor.calc_aabb()
+    pos = Vector3(
+        [
+            0.0,
+            0.0,
+            # due to rotating about the y axis, the box's x size becomes the new effective "z" height of the box
+            bounding_box.size.x / 2.0 - bounding_box.offset.x,
+        ]
+    )
+    rot = Quaternion.from_y_rotation(-np.pi / 2)
+    return (pos, rot)
+
+
+def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
+    """Original method of computing initial pose for an Actor (so it starts "flat" on the ground)."""
+    bounding_box = actor.calc_aabb()
+    pos = Vector3(
+        [
+            0.0,
+            0.0,
+            bounding_box.size.z / 2.0 - bounding_box.offset.z,
+        ]
+    )
+    rot = Quaternion()
+    return (pos, rot)
 
 
 DbBase = declarative_base()

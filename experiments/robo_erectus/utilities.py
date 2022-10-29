@@ -1,5 +1,7 @@
-from genericpath import isfile
+"""Provide misc helper functions."""
 import os
+
+from genericpath import isfile
 from typing_extensions import LiteralString
 
 DATABASE_PATH = "./database"
@@ -8,12 +10,14 @@ LASTEST_RUN_FILENAME = "latest"
 
 
 def ensure_dirs(*dir_paths):
+    """Ensure a list of directories all exist (creating them as needed)."""
     for dir_path in dir_paths:
         if not os.path.isdir(dir_path):
             os.mkdir(dir_path)
 
 
 def find_dir(parent_path: str, target_name: str) -> str:
+    """Find a directory by name within a given path."""
     target_dir = os.path.join(parent_path, target_name)
     if not os.path.isdir(target_dir):
         for dir_name in sorted(os.listdir(parent_path)):
@@ -25,6 +29,7 @@ def find_dir(parent_path: str, target_name: str) -> str:
 
 
 def get_latest_run() -> str:
+    """Get full name of latest experiment run."""
     target = os.path.join(DATABASE_PATH, LASTEST_RUN_FILENAME)
     if os.path.isfile(target):
         with open(target, "r") as file:
@@ -35,6 +40,7 @@ def get_latest_run() -> str:
 
 
 def set_latest_run(full_run_name: str):
+    """Cache the name of the latest run."""
     target = os.path.join(DATABASE_PATH, LASTEST_RUN_FILENAME)
     with open(target, "w") as file:
         file.write(full_run_name)

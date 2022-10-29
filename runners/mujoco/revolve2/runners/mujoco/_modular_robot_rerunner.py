@@ -1,8 +1,12 @@
 """Rerun(watch) a modular robot in Mujoco."""
 
+from typing import Callable, Tuple
+
+import numpy as np
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
+from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
 from revolve2.runners.mujoco import LocalRunner
 
@@ -13,7 +17,11 @@ class ModularRobotRerunner:
     _controller: ActorController
 
     async def rerun(
-        self, robot: ModularRobot, control_frequency: float, simulation_time=1000000
+        self,
+        robot: ModularRobot,
+        control_frequency: float,
+        simulation_time=1000000,
+        get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
     ):
         """
         Rerun a single robot.
@@ -28,7 +36,7 @@ class ModularRobotRerunner:
             control=self._control,
         )
 
-        env, self._controller = ModularRobotRerunner.robot_to_env(robot)
+        env, self._controller = ModularRobotRerunner.robot_to_env(robot, get_pose)
         batch.environments.append(env)
 
         runner = LocalRunner(headless=False)
@@ -41,15 +49,27 @@ class ModularRobotRerunner:
         control.set_dof_targets(0, self._controller.get_dof_targets())
 
     @staticmethod
-    def robot_to_env(robot: ModularRobot) -> Environment:
-        """Constructs an Environment object and contoller for a single robot."""
+    def robot_to_env(
+        robot: ModularRobot,
+        get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
+    ) -> Environment:
+        """
+        Construct an Environment object and contoller for a single robot.
+
+        params:
+            robot: ModularRobot to create Environment for
+            get_pose: optional function for computing the initial pose of the robot
+        """
         actor, controller = robot.make_actor_and_controller()
         env = Environment()
+        pos, rot = Vector3([0.0, 0.0, 0.1]), Quaternion()
+        if get_pose is not None:
+            pos, rot = get_pose(actor)
         env.actors.append(
             PosedActor(
                 actor,
-                Vector3([0.0, 0.0, 0.1]),
-                Quaternion(),
+                pos,
+                rot,
                 [0.0 for _ in controller.get_dof_targets()],
             )
         )
