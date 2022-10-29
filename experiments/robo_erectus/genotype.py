@@ -200,11 +200,24 @@ def random(
         num_initial_mutations,
     )
 
-    brain = brain_random(
+    # brain = brain_random(
+    #     innov_db_brain,
+    #     multineat_rng,
+    #     _MULTINEAT_PARAMS,
+    #     multineat.ActivationFunction.SIGNED_SINE,
+    #     num_initial_mutations,
+    # )
+
+    from revolve2.genotypes.cppnwin._random_v1 import random_v1
+
+    brain = random_v1(
         innov_db_brain,
         multineat_rng,
         _MULTINEAT_PARAMS,
         multineat.ActivationFunction.SIGNED_SINE,
+        16,  # bias(always 1), x1, y1, z1, x2, y2, z2, state1, state2, position(x,y,z), rotation(x,y,z,w)
+        # 7,  # bias(always 1), x1, y1, z1, x2, y2, z2
+        1,  # weight
         num_initial_mutations,
     )
 

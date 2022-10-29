@@ -27,15 +27,18 @@ async def main() -> None:
     parser.add_argument("--sampling_frequency", type=int, default=10)
     parser.add_argument("--control_frequency", type=int, default=10)
     parser.add_argument("-p", "--population_size", type=int, default=10)
-    parser.add_argument("--offspring_size", type=int, default=10)
+    parser.add_argument("--offspring_size", type=int, default=0)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument(
-        "-f", "--fitness_function", default="displacement_height_groundcontact"
+        "-f", "--fitness_function", default="directed_diagonal_displacement"
     )
     args = parser.parse_args()
+
+    if args.offspring_size == 0:
+        args.offspring_size = args.population_size
 
     ensure_dirs(DATABASE_PATH)
 

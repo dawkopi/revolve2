@@ -1,7 +1,7 @@
 import math
 from numpy import average
 from revolve2.core.physics.running._results import EnvironmentResults
-from typing import Union
+from typing import Union, List
 import logging
 
 
@@ -12,6 +12,36 @@ def displacement_measure(environment_results: EnvironmentResults) -> float:
         (begin_state.position[0] - end_state.position[0]) ** 2
         + ((begin_state.position[1] - end_state.position[1]) ** 2)
     )
+    return float(distance)
+
+
+def displacement_measure_cont(environment_results: EnvironmentResults):
+    states_count = len(environment_results.environment_states)
+
+    displacement = []
+    for i in range(states_count - 1):
+        prev_state = environment_results.environment_states[i].actor_states[0]
+        target_state = environment_results.environment_states[i + 1].actor_states[0]
+        dx = target_state.position[0] - prev_state.position[0]
+        dy = target_state.position[1] - prev_state.position[1]
+        displacement.append((float(dx), float(dy)))
+
+    return displacement
+
+
+def x_displacement_measure(environment_results: EnvironmentResults) -> float:
+    begin_state = environment_results.environment_states[0].actor_states[0]
+    end_state = environment_results.environment_states[-1].actor_states[0]
+    distance = begin_state.position[0] - end_state.position[0]
+
+    return float(distance)
+
+
+def y_displacement_measure(environment_results: EnvironmentResults) -> float:
+    begin_state = environment_results.environment_states[0].actor_states[0]
+    end_state = environment_results.environment_states[-1].actor_states[0]
+    distance = begin_state.position[1] - end_state.position[1]
+
     return float(distance)
 
 

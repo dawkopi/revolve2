@@ -355,10 +355,14 @@ class Optimizer(EAOptimizer[Genotype, float]):
     ) -> None:
         """controller for batch that influnces models in simulation"""
         controller = self._controllers[environment_index]
-        controller = controller.brain.make_controller(
-            controller.body, controller.dof_ids
+        _, dof_ids = controller.body.to_actor()
+        state.actor_states[0].dof_targets = list(
+            zip(dof_ids, controller.get_dof_targets())
         )
-
+        _controller = controller.brain.make_controller(
+            controller.body, controller.dof_ids, state
+        )
+        controller._weight_matrix = _controller._weight_matrix
         controller.step(dt)
         control.set_dof_targets(0, controller.get_dof_targets())
 

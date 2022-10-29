@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Union
 
 from pyrr import Quaternion, Vector3
 
@@ -17,6 +17,8 @@ class ActorState:
     groundcontacts: Set[int] = None
     # count of total geometries in Actor's morphology
     numgeoms: int = None
+    # dof targets from previous step
+    dof_targets: List[Union[int, float]] = None
 
 
 @dataclass

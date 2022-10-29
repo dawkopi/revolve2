@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 from revolve2.runners.mujoco import LocalRunner
 from utilities import *
+from controllers.cppn_controller import CppnController
 
 
 async def main() -> None:
@@ -70,7 +71,13 @@ async def main() -> None:
 
     rerunner = ModularRobotRerunner()
 
-    robot: ModularRobot = develop(genotype)
+    from revolve2.genotypes.cppnwin.modular_robot.body_genotype_v1 import (
+        develop_v1 as body_develop,
+    )
+
+    body = body_develop(genotype.body)
+    brain = CppnController(genotype.brain.genotype)
+    robot = ModularRobot(body, brain)
     env, _ = ModularRobotRerunner.robot_to_env(robot)
 
     # output env to a MJCF (xml) file (based on LocalRunner.run_batch())

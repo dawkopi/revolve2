@@ -3,7 +3,13 @@
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
-from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+from revolve2.core.physics.running import (
+    ActorControl,
+    Batch,
+    Environment,
+    PosedActor,
+    EnvironmentState,
+)
 from revolve2.runners.mujoco import LocalRunner
 
 
@@ -35,15 +41,42 @@ class ModularRobotRerunner:
         await runner.run_batch(batch)
 
     def _control(
-        self, environment_index: int, dt: float, control: ActorControl
+        self,
+        environment_index: int,
+        dt: float,
+        control: ActorControl,
+        state: EnvironmentState,
     ) -> None:
-        self._controller.step(dt)
-        control.set_dof_targets(0, self._controller.get_dof_targets())
+        controller = self._controller
+        _, dof_ids = controller.body.to_actor()
+        state.actor_states[0].dof_targets = list(
+            zip(dof_ids, controller.get_dof_targets())
+        )
+        _controller = controller.brain.make_controller(
+            controller.body, controller.dof_ids, state
+        )
+        controller._weight_matrix = _controller._weight_matrix
+        controller.step(dt)
+        control.set_dof_targets(0, controller.get_dof_targets())
 
     @staticmethod
     def robot_to_env(robot: ModularRobot) -> Environment:
         """Constructs an Environment object and contoller for a single robot."""
-        actor, controller = robot.make_actor_and_controller()
+        from revolve2.genotypes.cppnwin.modular_robot.body_genotype_v1 import (
+            develop_v1 as body_develop,
+        )
+
+        body = robot.body
+        brain = robot.brain
+
+        actor, dof_ids = body.to_actor()
+        controller = brain.make_controller(body, dof_ids)
+        ##
+        controller.body = body
+        controller.brain = brain
+        controller.dof_ids = dof_ids
+        ##
+
         env = Environment()
         env.actors.append(
             PosedActor(

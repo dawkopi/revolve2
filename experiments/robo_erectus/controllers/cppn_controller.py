@@ -9,6 +9,7 @@ from revolve2.actor_controllers.cpg import (
     CpgPair,
     CpgActorController as ControllerCpg,
 )
+from revolve2.core.physics.running import EnvironmentState
 
 
 class CppnController(Brain):
@@ -30,7 +31,9 @@ class CppnController(Brain):
         """
         self._genotype = genotype
 
-    def make_controller(self, body: Body, dof_ids: List[int]) -> ActorController:
+    def make_controller(
+        self, body: Body, dof_ids: List[int], state: EnvironmentState = None
+    ) -> ActorController:
         """
         Create a controller for the provided body.
 
@@ -57,7 +60,7 @@ class CppnController(Brain):
         ]
 
         (internal_weights, external_weights) = self._make_weights(
-            active_hinges, connections, body
+            active_hinges, connections, body, state
         )
         weight_matrix = cpg_network_structure.make_connection_weights_matrix(
             {
@@ -119,6 +122,7 @@ class CppnController(Brain):
         active_hinges: List[ActiveHinge],
         connections: List[Tuple[ActiveHinge, ActiveHinge]],
         body: Body,
+        state: EnvironmentState,
     ) -> Tuple[List[float], List[float]]:
         brain_net = multineat.NeuralNetwork()
         self._genotype.BuildPhenotype(brain_net)
@@ -134,10 +138,34 @@ class CppnController(Brain):
                     float(pos.x),
                     float(pos.y),
                     float(pos.z),
+                    0.0
+                    if state is None
+                    else next(
+                        filter(
+                            lambda x: x[0] == hinge_id,
+                            state.actor_states[0].dof_targets,
+                        )
+                    )[1],
+                    0.0
+                    if state is None
+                    else next(
+                        filter(
+                            lambda x: x[0] == hinge_id,
+                            state.actor_states[0].dof_targets,
+                        )
+                    )[1],
+                    0.0 if state is None else state.actor_states[0].position[0],
+                    0.0 if state is None else state.actor_states[0].position[1],
+                    0.0 if state is None else state.actor_states[0].position[2],
+                    0.0 if state is None else state.actor_states[0].orientation[0],
+                    0.0 if state is None else state.actor_states[0].orientation[1],
+                    0.0 if state is None else state.actor_states[0].orientation[2],
+                    0.0 if state is None else state.actor_states[0].orientation[3],
                 ],
             )
-            for pos in [
-                body.grid_position(active_hinge) for active_hinge in active_hinges
+            for hinge_id, pos in [
+                (active_hinge._id, body.grid_position(active_hinge))
+                for active_hinge in active_hinges
             ]
         ]
 
@@ -152,10 +180,36 @@ class CppnController(Brain):
                     float(pos2.x),
                     float(pos2.y),
                     float(pos2.z),
+                    0.0
+                    if state is None
+                    else next(
+                        filter(
+                            lambda x: x[0] == hinge_id1,
+                            state.actor_states[0].dof_targets,
+                        )
+                    )[1],
+                    0.0
+                    if state is None
+                    else next(
+                        filter(
+                            lambda x: x[0] == hinge_id2,
+                            state.actor_states[0].dof_targets,
+                        )
+                    )[1],
+                    0.0 if state is None else state.actor_states[0].position[0],
+                    0.0 if state is None else state.actor_states[0].position[1],
+                    0.0 if state is None else state.actor_states[0].position[2],
+                    0.0 if state is None else state.actor_states[0].orientation[0],
+                    0.0 if state is None else state.actor_states[0].orientation[1],
+                    0.0 if state is None else state.actor_states[0].orientation[2],
+                    0.0 if state is None else state.actor_states[0].orientation[3],
                 ],
             )
-            for (pos1, pos2) in [
-                (body.grid_position(active_hinge1), body.grid_position(active_hinge2))
+            for ((hinge_id1, pos1), (hinge_id2, pos2)) in [
+                (
+                    (active_hinge1._id, body.grid_position(active_hinge1)),
+                    (active_hinge2._id, body.grid_position(active_hinge2)),
+                )
                 for (active_hinge1, active_hinge2) in connections
             ]
         ]
