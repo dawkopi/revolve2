@@ -50,6 +50,10 @@ async def main() -> None:
         exit()
     else:
         print(f'Run found - "{full_run_name}"')
+    if args.count > 1 and args.time > 300:
+        print(
+            "WARNING: consider using a shorter simulation time (-t) when visualizing multiple robots\n"
+        )
 
     database_dir = os.path.join(DATABASE_PATH, full_run_name)
     analysis_dir = os.path.join(database_dir, ANALYSIS_DIR_NAME)
