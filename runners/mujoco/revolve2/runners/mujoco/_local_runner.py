@@ -50,6 +50,9 @@ class LocalRunner(Runner):
         """
         self._headless = headless
 
+    def run_batch_sync(self, batch: Batch) -> BatchResults:
+        return self._run_batch(batch)
+
     async def run_batch(self, batch: Batch) -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
@@ -57,16 +60,15 @@ class LocalRunner(Runner):
         :param batch: The batch to run.
         :returns: List of simulation states in ascending order of time.
         """
-        logging.info("Starting simulation batch with mujoco.")
+        return self._run_batch(batch)
 
+    def _run_batch(self, batch: Batch) -> BatchResults:
         control_step = 1 / batch.control_frequency
         sample_step = 1 / batch.sampling_frequency
 
         results = BatchResults([EnvironmentResults([]) for _ in batch.environments])
 
         for env_index, env_descr in enumerate(batch.environments):
-            logging.info(f"Environment {env_index} (of {len(batch.environments)})")
-
             xml_string = self._make_mjcf(env_descr)
             model = mujoco.MjModel.from_xml_string(xml_string)
 
@@ -135,8 +137,6 @@ class LocalRunner(Runner):
             results.environment_results[env_index].environment_states.append(
                 EnvironmentState(time, self._get_actor_states(env_descr, data, model))
             )
-
-        logging.info("Finished batch.")
 
         return results
 

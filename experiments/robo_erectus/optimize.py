@@ -26,11 +26,12 @@ async def main() -> None:
     parser.add_argument("--sampling_frequency", type=int, default=10)
     parser.add_argument("--control_frequency", type=int, default=10)
     parser.add_argument("-p", "--population_size", type=int, default=10)
-    parser.add_argument("--offspring_size", type=int, default=10)
+    parser.add_argument("--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument(
         "-f", "--fitness_function", default="displacement_height_groundcontact"
     )
@@ -40,6 +41,9 @@ async def main() -> None:
         help="run with non-headless mode (view sim window)",
     )
     args = parser.parse_args()
+
+    if args.offspring_size is None:
+        args.offspring_size = args.population_size
 
     ensure_dirs(DATABASE_PATH)
 
@@ -128,6 +132,7 @@ async def main() -> None:
 
     logging.info("Starting optimization process...")
 
+    optimizer.n_jobs = args.n_jobs
     await optimizer.run()
 
     logging.info("Finished optimizing.")

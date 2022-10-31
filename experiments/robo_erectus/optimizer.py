@@ -1,7 +1,6 @@
 """Optimizer for finding a good modular robot body and brain using CPPNWIN genotypes and simulation using mujoco."""
 
 import logging
-import math
 import pickle
 from random import Random
 from typing import List, Tuple
@@ -23,19 +22,18 @@ from revolve2.core.optimization import ProcessIdGen
 from revolve2.core.optimization.ea.generic_ea import EAOptimizer
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import (
-    ActorControl,
-    ActorState,
     Batch,
     Environment,
     PosedActor,
     Runner,
 )
-from revolve2.core.physics.running._results import EnvironmentResults
 from revolve2.runners.mujoco import LocalRunner
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
+from joblib import Parallel, delayed
+from controllers.controller_wrapper import *
 
 
 class Optimizer(EAOptimizer[Genotype, float]):
@@ -46,8 +44,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
     """
 
     _process_id: int
-
-    _runner: Runner
 
     _controllers: List[ActorController]
 
@@ -65,6 +61,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
     _fitness_function: str
 
     _headless: bool = True  # whether to hide sim GUI
+
+    n_jobs: int = 1
 
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
@@ -118,7 +116,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         self._process_id = process_id
         self._headless = headless
-        self._init_runner()
         self._innov_db_body = innov_db_body
         self._innov_db_brain = innov_db_brain
         self._rng = rng
@@ -175,7 +172,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         self._process_id = process_id
         self._headless = headless
-        self._init_runner()
 
         opt_row = (
             (
@@ -209,10 +205,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._fitness_function = opt_row.fitness_function
 
         return True
-
-    def _init_runner(self) -> None:
-        logging.info(f"initalizing runner (headless={self._headless})")
-        self._runner = LocalRunner(headless=self._headless)
 
     def _select_parents(
         self,
@@ -272,21 +264,21 @@ class Optimizer(EAOptimizer[Genotype, float]):
         process_id: int,
         process_id_gen: ProcessIdGen,
     ) -> List[float]:
-        batch = Batch(
-            simulation_time=self._simulation_time,
-            sampling_frequency=self._sampling_frequency,
-            control_frequency=self._control_frequency,
-            control=self._control,
-        )
+        _simulation_time = self._simulation_time
+        _sampling_frequency = self._sampling_frequency
+        _control_frequency = self._control_frequency
 
-        self._controllers = []
-
-        for genotype in genotypes:
-            # here the actual controllers are created:
+        def _evaluate(genotype, headless):
             actor, controller = develop(genotype).make_actor_and_controller()
-            # bounding_box = actor.calc_aabb()
-            self._controllers.append(controller)
-            # pos, rot = actor_get_default_pose(actor)
+
+            controller_wrapper = ControllerWrapper(controller)
+            batch = Batch(
+                simulation_time=_simulation_time,
+                sampling_frequency=_sampling_frequency,
+                control_frequency=_control_frequency,
+                control=controller_wrapper._control,
+            )
+
             pos, rot = actor_get_standing_pose(actor)
             env = Environment()
             env.actors.append(
@@ -299,18 +291,28 @@ class Optimizer(EAOptimizer[Genotype, float]):
             )
             batch.environments.append(env)
 
-        batch_results = await self._runner.run_batch(batch)
+            return LocalRunner(headless=headless).run_batch_sync(batch)
 
-        print(self._fitness_function)
+        logging.info(
+            f"Starting simulation batch with mujoco - {len(genotypes)} evaluations."
+        )
+        if self.n_jobs > 1:
+            batch_results = Parallel(n_jobs=self.n_jobs)(
+                delayed(_evaluate)(genotype, True) for genotype in genotypes
+            )
+        else:
+            batch_results = [
+                _evaluate(genotype, self._headless) for genotype in genotypes
+            ]
+        logging.info("Finished batch.")
+
+        environment_results = [br.environment_results[0] for br in batch_results]
+
         fitness = [
             fitness_functions[self._fitness_function](environment_result)
-            for environment_result, environment in zip(
-                batch_results.environment_results, batch.environments
-            )
+            for environment_result in environment_results
         ]
-        displacement = [
-            displacement_measure(r) for r in batch_results.environment_results
-        ]
+        displacement = [displacement_measure(r) for r in environment_results]
 
         wandb.log(
             {
@@ -324,27 +326,16 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 "max_height_relative_to_avg_height": wandb.Histogram(
                     [
                         max_height_relative_to_avg_height_measure(r)
-                        for r in batch_results.environment_results
+                        for r in environment_results
                     ]
                 ),
                 "ground_contact_measure": wandb.Histogram(
-                    [
-                        ground_contact_measure(r)
-                        for r in batch_results.environment_results
-                    ]
+                    [ground_contact_measure(r) for r in environment_results]
                 ),
             }
         )
 
         return fitness
-
-    def _control(
-        self, environment_index: int, dt: float, control: ActorControl
-    ) -> None:
-        """Set up controller for batch that influnces models in simulation."""
-        controller = self._controllers[environment_index]
-        controller.step(dt)
-        control.set_dof_targets(0, controller.get_dof_targets())
 
     def _on_generation_checkpoint(self, session: AsyncSession) -> None:
         session.add(
