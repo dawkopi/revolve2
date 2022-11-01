@@ -1,9 +1,11 @@
+import cv2
 import math
-import tempfile
-from typing import List
 
 import mujoco
 import mujoco_viewer
+import numpy as np
+import tempfile
+from typing import List
 
 try:
     import logging
@@ -50,7 +52,7 @@ class LocalRunner(Runner):
         """
         self._headless = headless
 
-    async def run_batch(self, batch: Batch) -> BatchResults:
+    async def run_batch(self, batch: Batch, video_path: str = "") -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
 
@@ -58,9 +60,11 @@ class LocalRunner(Runner):
         :returns: List of simulation states in ascending order of time.
         """
         logging.info("Starting simulation batch with mujoco.")
+        video_fps = 24
 
         control_step = 1 / batch.control_frequency
         sample_step = 1 / batch.sampling_frequency
+        video_step = 1 / video_fps
 
         results = BatchResults([EnvironmentResults([]) for _ in batch.environments])
 
@@ -83,14 +87,25 @@ class LocalRunner(Runner):
             for posed_actor in env_descr.actors:
                 posed_actor.dof_states
 
-            if not self._headless:
+            if not self._headless or video_path:
                 viewer = mujoco_viewer.MujocoViewer(
                     model,
                     data,
                 )
+                if video_path:
+                    # viewer._render_every_frame = False  # save a lot of time
+                    # http://tsaith.github.io/combine-images-into-a-video-with-python-3-and-opencv-3.html
+                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    vid = cv2.VideoWriter(
+                        video_path,
+                        fourcc,
+                        video_fps,
+                        (viewer.viewport.width, viewer.viewport.height),
+                    )
 
             last_control_time = 0.0
             last_sample_time = 0.0
+            last_video_time = 0.0  # time at which last video frame was saved
 
             # sample initial state
             results.environment_results[env_index].environment_states.append(
@@ -128,8 +143,37 @@ class LocalRunner(Runner):
                 if not self._headless:
                     viewer.render()
 
-            if not self._headless:
+                # capture video frame if it's time
+                if video_path and time >= last_video_time + video_step:
+                    last_video_time = int(time / video_step) * video_step
+
+                    if self._headless:
+                        # ensure render is called anyways
+                        viewer._hide_menu = (
+                            viewer._hide_menu or video_path
+                        )  # hack (don't show overlay in video)
+                        viewer.render()
+
+                    # https://github.com/deepmind/mujoco/issues/285 (see also record.cc)
+                    img = np.empty(
+                        (viewer.viewport.height, viewer.viewport.width, 3),
+                        dtype=np.uint8,
+                    )
+
+                    mujoco.mjr_readPixels(
+                        rgb=img,
+                        depth=None,
+                        viewport=viewer.viewport,
+                        con=viewer.ctx,
+                    )
+                    img = np.flip(img, axis=0)  # img is upside down initially
+                    vid.write(img)
+                    # matplotlib.image.imsave("/tmp/first.png", img)
+
+            if not self._headless or video_path:
                 viewer.close()
+            if vid:
+                vid.release()
 
             # sample one final time
             results.environment_results[env_index].environment_states.append(

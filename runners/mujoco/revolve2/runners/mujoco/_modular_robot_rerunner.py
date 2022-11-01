@@ -22,12 +22,15 @@ class ModularRobotRerunner:
         control_frequency: float,
         simulation_time=1000000,
         get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
+        video_path: str = "",
     ):
         """
         Rerun a single robot.
 
         :param robot: The robot the simulate.
         :param control_frequency: Control frequency for the simulation. See `Batch` class from physics running.
+        :param get_pose: (optional) function returning the initial pose to use for this Actor
+        :param save_video_path: optional path to file to save rendered video of simulation to (sim will run headless).
         """
         batch = Batch(
             simulation_time=simulation_time,
@@ -39,8 +42,9 @@ class ModularRobotRerunner:
         env, self._controller = ModularRobotRerunner.robot_to_env(robot, get_pose)
         batch.environments.append(env)
 
-        runner = LocalRunner(headless=False)
-        await runner.run_batch(batch)
+        headless = bool(video_path)
+        runner = LocalRunner(headless=headless)
+        await runner.run_batch(batch, video_path=video_path)
 
     def _control(
         self, environment_index: int, dt: float, control: ActorControl

@@ -37,6 +37,11 @@ async def main() -> None:
         default=1,
         help="quantity of 'best' robots to display in order",
     )
+    parser.add_argument(
+        "--video",
+        action="store_true",
+        help="whether to write video of sim to file (runs headless)",
+    )
     args = parser.parse_args()
     ensure_dirs(DATABASE_PATH)
 
@@ -93,9 +98,9 @@ async def main() -> None:
             xml_string = LocalRunner._make_mjcf(env)
             # model = mujoco.MjModel.from_xml_string(xml_string)
             # data = mujoco.MjData(model)
-            xml_path = os.path.join(
-                analysis_dir, f"rank{str(i).zfill(3)}_ind_id{ind_id}.xml"
-            )
+
+            fname_base = f"rank{str(i).zfill(3)}_ind_id{ind_id}"
+            xml_path = os.path.join(analysis_dir, f"{fname_base}.xml")
             with open(xml_path, "w") as f:
                 f.write(xml_string)
             print(f"wrote file: '{xml_path}'")
@@ -103,7 +108,13 @@ async def main() -> None:
             # run simulation
             print(f"starting simulation for {args.time} secs...")
             rerunner = ModularRobotRerunner()
-            await rerunner.rerun(robot, 60, simulation_time=args.time)
+            video_path = (
+                os.path.join(analysis_dir, f"{fname_base}.mp4") if args.video else ""
+            )
+            await rerunner.rerun(
+                robot, 60, simulation_time=args.time, video_path=video_path
+            )
+            print(f"wrote file: {video_path}")
 
 
 if __name__ == "__main__":
