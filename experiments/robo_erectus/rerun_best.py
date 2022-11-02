@@ -114,7 +114,8 @@ async def main() -> None:
             await rerunner.rerun(
                 robot, 60, simulation_time=args.time, video_path=video_path
             )
-            print(f"wrote file: {video_path}")
+            if video_path:
+                print(f"wrote file: {video_path}")
 
 
 if __name__ == "__main__":

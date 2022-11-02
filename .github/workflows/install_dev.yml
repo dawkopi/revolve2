@@ -1,0 +1,35 @@
+on:
+  workflow_call:
+
+jobs:
+  runs-on: ubuntu-20.04
+
+  steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
+      with:
+        python-version: "3.8.x"
+    - name: create virtualenv
+      run: |
+        pip install virtualenv
+        virtualenv .venv
+        . .venv/bin/activate
+    - name: install serialization
+      run: pip install ./serialization[dev]
+    - name: install actor_controller
+      run: pip install ./actor_controller[dev]
+    - name: install rpi_controller
+      run: pip install ./rpi_controller[dev]
+    - name: install core
+      run: pip install ./core[dev]
+    - name: install standard_resources
+      run: pip install ./standard_resources[dev]
+    - name: install runner isaacgym
+      #run: pip install ./runners/isaacgym[dev]
+      run: echo "IsaacGym is not open source so sadly we cannot test this."
+    - name: install runner mujoco
+      run: pip install ./runners/mujoco[dev]
+    - name: install genotype CPPNWIN
+      run: |
+        sudo apt install libcereal-dev
+        pip install ./genotypes/cppnwin[dev]
