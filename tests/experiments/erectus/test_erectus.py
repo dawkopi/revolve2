@@ -23,6 +23,7 @@ def test_experiment_can_complete():
         "1",
         "-t",
         "3",
+        # "--save_best",  # don't output best robots
     ]
     print("running command:")
     print(cmd)

@@ -172,7 +172,7 @@ class LocalRunner(Runner):
 
             if not self._headless or video_path:
                 viewer.close()
-            if vid:
+            if video_path:
                 vid.release()
 
             # sample one final time

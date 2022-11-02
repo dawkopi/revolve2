@@ -301,7 +301,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         batch_results = await self._runner.run_batch(batch)
 
-        print(self._fitness_function)
+        logging.info(self._fitness_function)
         fitness = [
             fitness_functions[self._fitness_function](environment_result)
             for environment_result, environment in zip(

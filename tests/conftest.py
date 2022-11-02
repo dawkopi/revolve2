@@ -39,8 +39,6 @@ def run_around_tests():
 
     # DELETE_GLOBS = [os.path.join(ERECTUS_DIR, "database", "unit_test_*")]
     DELETE_GLOBS = [os.path.join(TEST_DIR, "database/")]
-    print("DELETE_GLOBS=")
-    print(DELETE_GLOBS)
     for pattern in DELETE_GLOBS:
         for dir_name in glob.glob(pattern):
             # print("would delete dir: " + dir_name)

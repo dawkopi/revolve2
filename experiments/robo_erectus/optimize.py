@@ -2,16 +2,18 @@
 """Setup and running of the optimize modular program."""
 
 import argparse
+from genotype import random as random_genotype
+import glob
 import logging
+import multineat
+from optimizer import Optimizer
 from random import Random
 
-import multineat
-import wandb
-from genotype import random as random_genotype
-from optimizer import Optimizer
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
+import subprocess
 from utilities import *
+import wandb
 
 
 async def main() -> None:
@@ -32,6 +34,12 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument(
+        "-b",
+        "--save_best",
+        action="store_true",
+        help="output the best robots to disk",
+    )
+    parser.add_argument(
         "-f", "--fitness_function", default="displacement_height_groundcontact"
     )
     parser.add_argument(
@@ -43,6 +51,18 @@ async def main() -> None:
 
     ensure_dirs(DATABASE_PATH)
 
+    # https://docs.wandb.ai/guides/track/advanced/resuming#resuming-guidance
+    should_resume = args.resume_latest or args.resume
+    full_run_name = None
+    if args.resume_latest:
+        full_run_name = get_latest_run()
+    elif args.resume:
+        full_run_name = find_dir(DATABASE_PATH, args.run_name)
+
+    if should_resume and full_run_name is None:
+        logging.error("Run not found...")
+        exit()
+
     wandb.init(
         mode="online" if args.wandb else "disabled",
         project="robo-erectus",
@@ -52,18 +72,11 @@ async def main() -> None:
             _disable_stats=not args.wandb_os_logs,
             _disable_meta=not args.wandb_os_logs,
         ),
+        resume=should_resume,
     )
 
-    if args.resume_latest:
-        full_run_name = get_latest_run()
-    elif args.resume:
-        full_run_name = find_dir(DATABASE_PATH, args.run_name)
-    else:
-        full_run_name = f"{args.run_name}__{wandb.run.name}"
-
     if full_run_name is None:
-        print("Run not found...")
-        exit()
+        full_run_name = f"{args.run_name}__{wandb.run.name}"
 
     database_dir = os.path.join(DATABASE_PATH, full_run_name)
     wandb.run.name = full_run_name
@@ -104,11 +117,11 @@ async def main() -> None:
         headless=not args.gui,
     )
     if maybe_optimizer is not None:
-        print("Initilized with existing database...")
+        logging.info("Initialized with existing database...")
         # TODO: if run is already finished, don't log it to wandb
         optimizer = maybe_optimizer
     else:
-        print("Initialized a new experiment...")
+        logging.info("Initialized a new experiment...")
         optimizer = await Optimizer.new(
             database=database,
             process_id=process_id,
@@ -131,6 +144,52 @@ async def main() -> None:
     await optimizer.run()
 
     logging.info("Finished optimizing.")
+
+    if args.save_best:
+        logging.info("\n\nrunning rerun_best.py")
+        call_rerun_best(run_name=args.run_name, count=4)
+        if args.wandb:
+            # now save files wandb if needed
+            analysis_dir = os.path.join(database_dir, "analysis")
+            UPLOAD_GLOBS = [
+                os.path.join(analysis_dir, "*.mp4"),
+                os.path.join(analysis_dir, "*.yml"),
+            ]
+            fnames = []
+            for pattern in UPLOAD_GLOBS:
+                for fname in glob.glob(pattern):
+                    fnames.append(fname)
+                    # https://docs.wandb.ai/guides/track/advanced/save-restore
+                    # logging.debug(f"uploading: {fname}")
+            logging.info(f"found {len(fnames)} files to upload to wandb...")
+            [wandb.save(fname) for fname in fnames]
+
+    if args.wandb:
+        # TODO: upload compressed database!
+        pass
+
+
+def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
+    """Output mp4 and xml files of best robots."""
+    SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+    RERUN_SCRIPT = os.path.join(SCRIPT_DIR, "rerun_best.py")
+
+    cmd = [
+        "python3",
+        RERUN_SCRIPT,
+        "-n",
+        run_name,
+        "-t",
+        str(dur_sec),
+        "-c",
+        str(count),
+        "--video",
+    ]
+    logging.debug("running command:")
+    logging.debug(" ".join(cmd))
+    res = subprocess.run(cmd, stdout=subprocess.PIPE)
+    if res.returncode != 0:
+        logging.error(f"rerun_best.py failed with code {res.return_code}")
 
 
 if __name__ == "__main__":
