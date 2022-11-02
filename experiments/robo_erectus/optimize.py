@@ -2,18 +2,19 @@
 """Setup and running of the optimize modular program."""
 
 import argparse
-from genotype import random as random_genotype
 import glob
 import logging
-import multineat
-from optimizer import Optimizer
+import subprocess
 from random import Random
 
+import multineat
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
-import subprocess
-from utilities import *
+
 import wandb
+from genotype import random as random_genotype
+from optimizer import Optimizer
+from utilities import *
 
 
 async def main() -> None:

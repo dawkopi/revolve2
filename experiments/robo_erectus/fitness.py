@@ -1,6 +1,7 @@
 """Provide various fitness functions for misc. goals."""
-import measures
 from revolve2.core.physics.running._results import EnvironmentResults
+
+import measures
 
 
 def displacement_height_groundcontact(environment_results: EnvironmentResults) -> float:

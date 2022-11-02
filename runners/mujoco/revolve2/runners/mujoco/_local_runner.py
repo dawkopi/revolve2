@@ -1,11 +1,12 @@
-import cv2
 import math
-
-import mujoco
-import mujoco_viewer
-import numpy as np
 import tempfile
 from typing import List
+
+import cv2
+import mujoco_viewer
+import numpy as np
+
+import mujoco
 
 try:
     import logging

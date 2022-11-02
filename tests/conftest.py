@@ -1,7 +1,10 @@
 import glob
 import os
-import pytest
+import secrets
 import shutil
+
+import pytest
+from experiments.robo_erectus.utilities import DATABASE_PATH
 
 # from dotenv import load_dotenv
 # from sqlalchemy.orm import close_all_sessions
@@ -37,8 +40,8 @@ def run_around_tests():
     # code that will run after a given test:
     print("AFTER TEST", flush=True)
 
-    # DELETE_GLOBS = [os.path.join(ERECTUS_DIR, "database", "unit_test_*")]
-    DELETE_GLOBS = [os.path.join(TEST_DIR, "database/")]
+    DELETE_GLOBS = [os.path.join(DATABASE_PATH, "unit_test_*")]
+    # DELETE_GLOBS = [os.path.join(TEST_DIR, "database/")]
     for pattern in DELETE_GLOBS:
         for dir_name in glob.glob(pattern):
             # print("would delete dir: " + dir_name)
@@ -47,3 +50,7 @@ def run_around_tests():
 
     # close_all_sessions() # prevents pytest from hanging
     # print('finished test cleanup', flush=True)
+
+
+def get_uuid(length: int = 10):
+    return str(secrets.token_hex(length))[:length]

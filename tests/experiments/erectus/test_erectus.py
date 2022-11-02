@@ -1,15 +1,15 @@
 import glob
 import os
 import subprocess
-from tests.conftest import ERECTUS_DIR, TEST_DIR
-import uuid
+
+from tests.conftest import DATABASE_PATH, ERECTUS_DIR, TEST_DIR, get_uuid
 
 
 def test_experiment_can_complete():
     """Test that optimize.py can complete (a minimal experiment) without crashing."""
     # assert 1 == 1
 
-    run_name = f"unit_test_{uuid.uuid4()}"
+    run_name = f"unit_test_{get_uuid()}"
     cmd = [
         "python3",
         os.path.join(ERECTUS_DIR, "optimize.py"),
@@ -33,7 +33,8 @@ def test_experiment_can_complete():
     print(res.stdout)
     assert res.returncode == 0
     # database dir gets created relative to directory optimize.py was called from...
-    dirs = glob.glob(os.path.join(TEST_DIR, "database/", f"{run_name}*"))
+    pattern = os.path.join(DATABASE_PATH, f"{run_name}*")
+    dirs = glob.glob(pattern)
     assert len(dirs) == 1
     exp_dir = dirs[0]
     print("exp_dir = " + exp_dir)
