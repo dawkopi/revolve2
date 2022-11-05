@@ -25,7 +25,6 @@ from revolve2.core.physics.running import (
     Batch,
     Environment,
     PosedActor,
-    Runner,
 )
 from revolve2.runners.mujoco import LocalRunner
 from sqlalchemy.ext.asyncio import AsyncEngine
@@ -232,27 +231,28 @@ class Optimizer(EAOptimizer[Genotype, float]):
     ) -> Tuple[List[int], List[int]]:
         assert len(old_individuals) == num_survivors
 
-        return population_management.steady_state(
-            old_individuals,
-            old_fitnesses,
+        # elitism
+
+        elite_size = len(old_individuals) // 5
+        non_elite_size = len(old_individuals) - elite_size
+
+        old_survivors = selection.topn(elite_size, old_individuals, old_fitnesses)
+        new_survivors = selection.multiple_unique(
+            non_elite_size,
             new_individuals,
             new_fitnesses,
-            lambda n, genotypes, fitnesses: selection.multiple_unique(
-                n,
-                genotypes,
-                fitnesses,
-                lambda genotypes, fitnesses: selection.tournament(
-                    self._rng, fitnesses, k=2
-                ),
-            ),
+            lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=2),
         )
+
+        return old_survivors, new_survivors
 
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
     def _crossover(self, parents: List[Genotype]) -> Genotype:
         assert len(parents) == 2
-        return crossover(parents[0], parents[1], self._rng)
+        # crossover removed - it's useless
+        return parents[0]
 
     def _mutate(self, genotype: Genotype) -> Genotype:
         return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)
@@ -312,30 +312,33 @@ class Optimizer(EAOptimizer[Genotype, float]):
             fitness_functions[self._fitness_function](environment_result)
             for environment_result in environment_results
         ]
-        displacement = [displacement_measure(r) for r in environment_results]
+
+        return fitness, environment_results
+
+    def _log_results(self) -> None:
+        displacement = [displacement_measure(r) for r in self._latest_results]
 
         wandb.log(
             {
                 "displacement_max": max(displacement),
                 "displacement_avg": sum(displacement) / len(displacement),
                 "displacement_min": min(displacement),
-                "fitness_max": max(fitness),
-                "fitness_avg": sum(fitness) / len(fitness),
-                "fitness_min": min(fitness),
+                "fitness_max": max(self._latest_fitnesses),
+                "fitness_avg": sum(self._latest_fitnesses)
+                / len(self._latest_fitnesses),
+                "fitness_min": min(self._latest_fitnesses),
                 "displacement": wandb.Histogram(displacement),
                 "max_height_relative_to_avg_height": wandb.Histogram(
                     [
                         max_height_relative_to_avg_height_measure(r)
-                        for r in environment_results
+                        for r in self._latest_results
                     ]
                 ),
                 "ground_contact_measure": wandb.Histogram(
-                    [ground_contact_measure(r) for r in environment_results]
+                    [ground_contact_measure(r) for r in self._latest_results]
                 ),
             }
         )
-
-        return fitness
 
     def _on_generation_checkpoint(self, session: AsyncSession) -> None:
         session.add(

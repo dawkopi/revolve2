@@ -12,6 +12,13 @@ def displacement_height_groundcontact(environment_results: EnvironmentResults) -
     )
 
 
+def displacement_height(environment_results: EnvironmentResults) -> float:
+    """TODO."""
+    return measures.displacement_measure(
+        environment_results
+    ) / measures.max_height_relative_to_avg_height_measure(environment_results)
+
+
 def displacement_only(environment_results: EnvironmentResults) -> float:
     """TODO."""
     return measures.displacement_measure(environment_results)
@@ -19,5 +26,6 @@ def displacement_only(environment_results: EnvironmentResults) -> float:
 
 fitness_functions = {
     "displacement_height_groundcontact": displacement_height_groundcontact,
+    "displacement_height": displacement_height,
     "displacement_only": displacement_only,
 }

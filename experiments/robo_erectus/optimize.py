@@ -32,9 +32,7 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
-    parser.add_argument(
-        "-f", "--fitness_function", default="displacement_height_groundcontact"
-    )
+    parser.add_argument("-f", "--fitness_function", default="displacement_height")
     parser.add_argument(
         "--gui",
         action="store_true",
