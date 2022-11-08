@@ -18,6 +18,11 @@ class ActorState:
     # count of total geometries in Actor's morphology
     numgeoms: int = None
 
+    # angles of each joint
+    qpos: List[float] = None
+    # velocities of each joint
+    qvel: List[float] = None
+
 
 @dataclass
 class EnvironmentState:

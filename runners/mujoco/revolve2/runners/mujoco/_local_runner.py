@@ -117,6 +117,9 @@ class LocalRunner(Runner):
                 if time >= last_control_time + control_step:
                     last_control_time = math.floor(time / control_step) * control_step
                     control = ActorControl()
+                    qpos = data.qpos
+                    qvel = data.qvel
+                    # TODO: use propioception (qpos, qvel) for control
                     batch.control(env_index, control_step, control)
                     actor_targets = control._dof_targets
                     actor_targets.sort(key=lambda t: t[0])
@@ -311,7 +314,9 @@ class LocalRunner(Runner):
         #    names = list([mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, curid) for curid in geomids])
         #    logging.debug(names)
 
-        return ActorState(position, orientation, geomids, model.ngeom)
+        return ActorState(
+            position, orientation, geomids, model.ngeom, data.qpos, data.qvel
+        )
 
     @staticmethod
     def _set_dof_targets(data: mujoco.MjData, targets: List[float]) -> None:
