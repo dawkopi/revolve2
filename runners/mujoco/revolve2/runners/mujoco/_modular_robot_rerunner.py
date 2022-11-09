@@ -1,6 +1,6 @@
 """Rerun(watch) a modular robot in Mujoco."""
 
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 import numpy as np
 from pyrr import Quaternion, Vector3
@@ -8,6 +8,7 @@ from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+
 from revolve2.runners.mujoco import LocalRunner
 
 
@@ -20,14 +21,17 @@ class ModularRobotRerunner:
         self,
         robot: ModularRobot,
         control_frequency: float,
-        simulation_time=1000000,
-        get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
-    ):
+        simulation_time: int = 1000000,
+        get_pose: Union[Callable[[Actor], Tuple[Vector3, Quaternion]], None] = None,
+        video_path: str = "",
+    ) -> None:
         """
         Rerun a single robot.
 
         :param robot: The robot the simulate.
         :param control_frequency: Control frequency for the simulation. See `Batch` class from physics running.
+        :param get_pose: (optional) function returning the initial pose to use for this Actor
+        :param save_video_path: optional path to file to save rendered video of simulation to (sim will run headless).
         """
         batch = Batch(
             simulation_time=simulation_time,
@@ -39,8 +43,9 @@ class ModularRobotRerunner:
         env, self._controller = ModularRobotRerunner.robot_to_env(robot, get_pose)
         batch.environments.append(env)
 
-        runner = LocalRunner(headless=False)
-        await runner.run_batch(batch)
+        headless = bool(video_path)
+        runner = LocalRunner(headless=headless)
+        await runner.run_batch(batch, video_path=video_path)
 
     def _control(
         self, environment_index: int, dt: float, control: ActorControl
@@ -51,8 +56,8 @@ class ModularRobotRerunner:
     @staticmethod
     def robot_to_env(
         robot: ModularRobot,
-        get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
-    ) -> Environment:
+        get_pose: Union[Callable[[Actor], Tuple[Vector3, Quaternion]], None] = None,
+    ) -> Tuple[Environment, ActorController]:
         """
         Construct an Environment object and contoller for a single robot.
 

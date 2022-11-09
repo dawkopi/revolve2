@@ -4,8 +4,6 @@
 import argparse
 import os
 
-from genotype import GenotypeSerializer, develop
-from optimizer import actor_get_standing_pose
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
 from revolve2.core.modular_robot import ModularRobot
@@ -13,6 +11,9 @@ from revolve2.core.optimization.ea.generic_ea import DbEAOptimizerIndividual
 from revolve2.runners.mujoco import LocalRunner, ModularRobotRerunner
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
+
+from genotype import GenotypeSerializer, develop
+from optimizer import actor_get_standing_pose
 from utilities import *
 
 
@@ -30,8 +31,19 @@ async def main() -> None:
     )
     parser.add_argument("-l", "--load_latest", action="store_true")
     parser.add_argument("-n", "--run_name", type=str, default="default")
+    parser.add_argument(
+        "-c",
+        "--count",
+        type=int,
+        default=1,
+        help="quantity of 'best' robots to display in order",
+    )
+    parser.add_argument(
+        "--video",
+        action="store_true",
+        help="whether to write video of sim to file (runs headless)",
+    )
     args = parser.parse_args()
-
     ensure_dirs(DATABASE_PATH)
 
     if args.load_latest:
@@ -44,48 +56,67 @@ async def main() -> None:
         exit()
     else:
         print(f'Run found - "{full_run_name}"')
+    if args.count > 1 and args.time > 300:
+        print(
+            "WARNING: consider using a shorter simulation time (-t) when visualizing multiple robots\n"
+        )
 
     database_dir = os.path.join(DATABASE_PATH, full_run_name)
     analysis_dir = os.path.join(database_dir, ANALYSIS_DIR_NAME)
     ensure_dirs(analysis_dir)
 
     db = open_async_database_sqlite(database_dir)
+    best_individuals = []
+    max_count = args.count
     async with AsyncSession(db) as session:
-        best_individual = (
+        best_individuals = (
             await session.execute(
                 select(DbEAOptimizerIndividual, DbFloat)
                 .filter(DbEAOptimizerIndividual.fitness_id == DbFloat.id)
                 .order_by(DbFloat.value.desc())
+                .limit(max_count)
             )
-        ).first()
+        ).all()
+        print(f"found {len(best_individuals)} best robots\n")
 
-        assert best_individual is not None
+        for i in range(len(best_individuals)):
+            res = best_individuals[i]
+            # assert individual is not None
 
-        print(f"fitness: {best_individual[1].value:0.5f}")
-
-        genotype = (
-            await GenotypeSerializer.from_database(
-                session, [best_individual[0].genotype_id]
+            ind_id = res[0].individual_id
+            print(
+                f"rank: {i}, individual_id: {ind_id}, genotype_id: {res[0].genotype_id}, fitness: {res[1].value:0.5f}"
             )
-        )[0]
 
-    rerunner = ModularRobotRerunner()
+            genotype = (
+                await GenotypeSerializer.from_database(session, [res[0].genotype_id])
+            )[0]
 
-    robot: ModularRobot = develop(genotype)
-    env, _ = ModularRobotRerunner.robot_to_env(robot, actor_get_standing_pose)
+            robot: ModularRobot = develop(genotype)
+            env, _ = ModularRobotRerunner.robot_to_env(robot, actor_get_standing_pose)
 
-    # output env to a MJCF (xml) file (based on LocalRunner.run_batch())
-    xml_string = LocalRunner._make_mjcf(env)
-    # model = mujoco.MjModel.from_xml_string(xml_string)
-    # data = mujoco.MjData(model)
-    xml_path = os.path.join(analysis_dir, "best.xml")
-    with open(xml_path, "w") as f:
-        f.write(xml_string)
-    print(f"wrote file: '{xml_path}'")
+            # output env to a MJCF (xml) file (based on LocalRunner.run_batch())
+            xml_string = LocalRunner._make_mjcf(env)
+            # model = mujoco.MjModel.from_xml_string(xml_string)
+            # data = mujoco.MjData(model)
 
-    # run simulation
-    print(f"starting simulation for {args.time} secs...")
-    await rerunner.rerun(robot, 60, simulation_time=args.time)
+            fname_base = f"rank{str(i).zfill(3)}_ind_id{ind_id}"
+            xml_path = os.path.join(analysis_dir, f"{fname_base}.xml")
+            with open(xml_path, "w") as f:
+                f.write(xml_string)
+            print(f"wrote file: '{xml_path}'")
+
+            # run simulation
+            print(f"starting simulation for {args.time} secs...")
+            rerunner = ModularRobotRerunner()
+            video_path = (
+                os.path.join(analysis_dir, f"{fname_base}.mp4") if args.video else ""
+            )
+            await rerunner.rerun(
+                robot, 60, simulation_time=args.time, video_path=video_path
+            )
+            if video_path:
+                print(f"wrote file: {video_path}")
 
 
 if __name__ == "__main__":

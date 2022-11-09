@@ -11,10 +11,6 @@ import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
-import wandb
-from fitness import fitness_functions
-from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
-from measures import *
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
 from revolve2.core.database import IncompatibleError
@@ -36,6 +32,11 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
+
+import wandb
+from fitness import fitness_functions
+from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
+from measures import *
 
 
 class Optimizer(EAOptimizer[Genotype, float]):
@@ -301,7 +302,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         batch_results = await self._runner.run_batch(batch)
 
-        print(self._fitness_function)
+        logging.info(self._fitness_function)
         fitness = [
             fitness_functions[self._fitness_function](environment_result)
             for environment_result, environment in zip(
