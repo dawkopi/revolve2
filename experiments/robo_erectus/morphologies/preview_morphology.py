@@ -72,7 +72,7 @@ async def main() -> None:
     rng = Random()
     rng.seed(5)
 
-    path = "/home/dingkang/codes/revolve2/experiments/robo_erectus/morphologies/spider.yaml"
+    path = "/home/dingkang/codes/revolve2/experiments/robo_erectus/morphologies/eretus.yaml"
     eretus = FixedBodyCreator(path)
     body = eretus.body
 
