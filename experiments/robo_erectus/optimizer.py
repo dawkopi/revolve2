@@ -12,7 +12,6 @@ import revolve2.core.optimization.ea.generic_ea.selection as selection
 import sqlalchemy
 import wandb
 from fitness import fitness_functions
-from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
 from measures import *
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
@@ -34,8 +33,13 @@ from sqlalchemy.future import select
 from joblib import Parallel, delayed
 from controllers.controller_wrapper import *
 
+from genotypes.linear_controller_genotype import (
+    LinearControllerGenotype,
+    LinearGenotypeSerializer,
+)
 
-class Optimizer(EAOptimizer[Genotype, float]):
+
+class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
     """
     Optimizer for the problem.
 
@@ -69,7 +73,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         session: AsyncSession,
         process_id: int,
         process_id_gen: ProcessIdGen,
-        initial_population: List[Genotype],
+        initial_population: List[LinearControllerGenotype],
         rng: Random,
         innov_db_body: multineat.InnovationDatabase,
         innov_db_brain: multineat.InnovationDatabase,
@@ -105,8 +109,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
             session=session,
             process_id=process_id,
             process_id_gen=process_id_gen,
-            genotype_type=Genotype,
-            genotype_serializer=GenotypeSerializer,
+            genotype_type=LinearControllerGenotype,
+            genotype_serializer=LinearGenotypeSerializer,
             fitness_type=float,
             fitness_serializer=FloatSerializer,
             offspring_size=offspring_size,
@@ -162,8 +166,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
             session=session,
             process_id=process_id,
             process_id_gen=process_id_gen,
-            genotype_type=Genotype,
-            genotype_serializer=GenotypeSerializer,
+            genotype_type=LinearControllerGenotype,
+            genotype_serializer=LinearGenotypeSerializer,
             fitness_type=float,
             fitness_serializer=FloatSerializer,
         ):
@@ -207,25 +211,18 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
     def _select_parents(
         self,
-        population: List[Genotype],
+        population: List[LinearControllerGenotype],
         fitnesses: List[float],
         num_parent_groups: int,
     ) -> List[List[int]]:
-        return [
-            selection.multiple_unique(
-                2,
-                population,
-                fitnesses,
-                lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=2),
-            )
-            for _ in range(num_parent_groups)
-        ]
+        # no crossover, return whole population
+        return [[i] for i in range(len(population))]
 
     def _select_survivors(
         self,
-        old_individuals: List[Genotype],
+        old_individuals: List[LinearControllerGenotype],
         old_fitnesses: List[float],
-        new_individuals: List[Genotype],
+        new_individuals: List[LinearControllerGenotype],
         new_fitnesses: List[float],
         num_survivors: int,
     ) -> Tuple[List[int], List[int]]:
@@ -233,7 +230,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         # elitism
 
-        elite_size = len(old_individuals) // 5
+        elite_size = len(old_individuals) // 10
         non_elite_size = len(old_individuals) - elite_size
 
         old_survivors = selection.topn(elite_size, old_individuals, old_fitnesses)
@@ -241,7 +238,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
             non_elite_size,
             new_individuals,
             new_fitnesses,
-            lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=2),
+            lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=4),
         )
 
         return old_survivors, new_survivors
@@ -249,17 +246,19 @@ class Optimizer(EAOptimizer[Genotype, float]):
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
-    def _crossover(self, parents: List[Genotype]) -> Genotype:
-        assert len(parents) == 2
+    def _crossover(
+        self, parents: List[LinearControllerGenotype]
+    ) -> LinearControllerGenotype:
         # crossover removed - it's useless
         return parents[0]
 
-    def _mutate(self, genotype: Genotype) -> Genotype:
-        return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)
+    def _mutate(self, genotype: LinearControllerGenotype) -> LinearControllerGenotype:
+        genotype.genotype += np.random.normal(scale=0.01, size=genotype.genotype.shape)
+        return genotype
 
     async def _evaluate_generation(
         self,
-        genotypes: List[Genotype],
+        genotypes: List[LinearControllerGenotype],
         database: AsyncEngine,
         process_id: int,
         process_id_gen: ProcessIdGen,
@@ -269,7 +268,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         _control_frequency = self._control_frequency
 
         def _evaluate(genotype, headless):
-            actor, controller = develop(genotype).make_actor_and_controller()
+            actor, controller = genotype.develop()
 
             controller_wrapper = ControllerWrapper(controller)
             batch = Batch(
@@ -279,7 +278,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 control=controller_wrapper._control,
             )
 
-            pos, rot = actor_get_standing_pose(actor)
+            # pos, rot = actor_get_standing_pose(actor)
+            pos, rot = actor_get_default_pose(actor)
             env = Environment()
             env.actors.append(
                 PosedActor(
@@ -372,7 +372,7 @@ def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
             bounding_box.size.x / 2.0 - bounding_box.offset.x,
         ]
     )
-    rot = Quaternion.from_y_rotation(-np.pi / 2)
+    rot = Quaternion.from_y_rotation(np.pi / 2)
     return (pos, rot)
 
 

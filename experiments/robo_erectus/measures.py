@@ -1,10 +1,19 @@
 """Implement some functions for measuring fitness aspects."""
 import logging
 import math
+import numpy as np
 from typing import Union
 
 from numpy import average
 from revolve2.core.physics.running._results import EnvironmentResults
+
+
+def control_cost(environment_results: EnvironmentResults) -> float:
+    action_diffs = sum(
+        [state.action_diffs for state in environment_results.environment_states], []
+    )
+    control_costs = [np.sum(np.square(diff)) for diff in action_diffs]
+    return float(np.sum(control_costs))
 
 
 def displacement_measure(environment_results: EnvironmentResults) -> float:

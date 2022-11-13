@@ -7,11 +7,11 @@ from random import Random
 
 import multineat
 import wandb
-from genotype import random as random_genotype
 from optimizer import Optimizer
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
 from utilities import *
+from genotypes.linear_controller_genotype import LinearControllerGenotype
 
 
 async def main() -> None:
@@ -23,8 +23,8 @@ async def main() -> None:
     parser.add_argument("--rng_seed", type=int, default=420)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
     parser.add_argument("-t", "--simulation_time", type=int, default=30)
-    parser.add_argument("--sampling_frequency", type=int, default=10)
-    parser.add_argument("--control_frequency", type=int, default=10)
+    parser.add_argument("--sampling_frequency", type=float, default=10)
+    parser.add_argument("--control_frequency", type=float, default=1)
     parser.add_argument("-p", "--population_size", type=int, default=10)
     parser.add_argument("--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
@@ -32,7 +32,7 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
-    parser.add_argument("-f", "--fitness_function", default="displacement_height")
+    parser.add_argument("-f", "--fitness_function", default="with_control_height_cost")
     parser.add_argument(
         "--gui",
         action="store_true",
@@ -92,8 +92,7 @@ async def main() -> None:
     innov_db_brain = multineat.InnovationDatabase()
 
     initial_population = [
-        random_genotype(innov_db_body, innov_db_brain, rng, args.num_initial_mutations)
-        for _ in range(args.population_size)
+        LinearControllerGenotype.random() for _ in range(args.population_size)
     ]
 
     maybe_optimizer = await Optimizer.from_database(

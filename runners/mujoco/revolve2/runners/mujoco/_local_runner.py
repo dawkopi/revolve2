@@ -63,7 +63,7 @@ class LocalRunner(Runner):
         return self._run_batch(batch)
 
     def _run_batch(self, batch: Batch) -> BatchResults:
-        control_step = 1 / batch.control_frequency
+        control_step = 1 / batch.control_frequency * 2
         sample_step = 1 / batch.sampling_frequency
 
         results = BatchResults([EnvironmentResults([]) for _ in batch.environments])
@@ -96,9 +96,14 @@ class LocalRunner(Runner):
 
             # sample initial state
             results.environment_results[env_index].environment_states.append(
-                EnvironmentState(0.0, self._get_actor_states(env_descr, data, model))
+                EnvironmentState(
+                    0.0, [], [], self._get_actor_states(env_descr, data, model)
+                )
             )
 
+            actions = []
+            action_diffs = []
+            last_action = None
             while (time := data.time) < batch.simulation_time:
                 # do control if it is time
                 if time >= last_control_time + control_step:
@@ -106,9 +111,17 @@ class LocalRunner(Runner):
                     control = ActorControl()
                     qpos = data.qpos
                     qvel = data.qvel
-                    # TODO: use propioception (qpos, qvel) for control
-                    batch.control(env_index, control_step, control)
+                    batch.control(env_index, qpos, qvel, control_step, control)
                     actor_targets = control._dof_targets
+                    action = control._dof_targets[0][1]
+                    actions.append(action)
+                    if last_action is None:
+                        action_diffs.append(action)
+                    else:
+                        action_diffs.append(
+                            [action[i] - last_action[i] for i in range(len(action))]
+                        )
+                    last_action = action
                     actor_targets.sort(key=lambda t: t[0])
                     targets = [
                         target
@@ -123,9 +136,14 @@ class LocalRunner(Runner):
                     last_sample_time = int(time / sample_step) * sample_step
                     results.environment_results[env_index].environment_states.append(
                         EnvironmentState(
-                            time, self._get_actor_states(env_descr, data, model)
+                            time,
+                            actions,
+                            action_diffs,
+                            self._get_actor_states(env_descr, data, model),
                         )
                     )
+                    actions = []
+                    action_diffs = []
 
                 # step simulation
                 mujoco.mj_step(model, data)
@@ -138,7 +156,12 @@ class LocalRunner(Runner):
 
             # sample one final time
             results.environment_results[env_index].environment_states.append(
-                EnvironmentState(time, self._get_actor_states(env_descr, data, model))
+                EnvironmentState(
+                    time,
+                    actions,
+                    action_diffs,
+                    self._get_actor_states(env_descr, data, model),
+                )
             )
 
         return results

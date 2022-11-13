@@ -29,6 +29,8 @@ class EnvironmentState:
     """State of an environment."""
 
     time_seconds: float
+    actions: List[List[float]]
+    action_diffs: List[List[float]]
     actor_states: List[ActorState]
 
 

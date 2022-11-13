@@ -4,8 +4,7 @@
 import argparse
 import os
 
-from genotype import GenotypeSerializer, develop
-from optimizer import actor_get_standing_pose
+from optimizer import actor_get_standing_pose, actor_get_default_pose
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
 from revolve2.core.modular_robot import ModularRobot
@@ -14,6 +13,11 @@ from revolve2.runners.mujoco import LocalRunner, ModularRobotRerunner
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 from utilities import *
+
+from genotypes.linear_controller_genotype import (
+    LinearControllerGenotype,
+    LinearGenotypeSerializer,
+)
 
 
 async def main() -> None:
@@ -64,15 +68,18 @@ async def main() -> None:
         print(f"fitness: {best_individual[1].value:0.5f}")
 
         genotype = (
-            await GenotypeSerializer.from_database(
+            await LinearGenotypeSerializer.from_database(
                 session, [best_individual[0].genotype_id]
             )
         )[0]
 
     rerunner = ModularRobotRerunner()
 
-    robot: ModularRobot = develop(genotype)
-    env, _ = ModularRobotRerunner.robot_to_env(robot, actor_get_standing_pose)
+    # pose_getter = actor_get_standing_pose
+    pose_getter = actor_get_default_pose
+
+    actor, controller = genotype.develop()
+    env, _ = ModularRobotRerunner.robot_to_env(actor, controller, pose_getter)
 
     # output env to a MJCF (xml) file (based on LocalRunner.run_batch())
     xml_string = LocalRunner._make_mjcf(env)
@@ -85,7 +92,13 @@ async def main() -> None:
 
     # run simulation
     print(f"starting simulation for {args.time} secs...")
-    await rerunner.rerun(robot, 60, simulation_time=args.time)
+    await rerunner.rerun(
+        actor,
+        controller,
+        60,
+        simulation_time=args.time,
+        get_pose=pose_getter,
+    )
 
 
 if __name__ == "__main__":

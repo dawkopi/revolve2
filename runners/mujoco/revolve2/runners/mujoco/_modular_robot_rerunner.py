@@ -18,7 +18,8 @@ class ModularRobotRerunner:
 
     async def rerun(
         self,
-        robot: ModularRobot,
+        actor,
+        controller,
         control_frequency: float,
         simulation_time=1000000,
         get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
@@ -36,21 +37,24 @@ class ModularRobotRerunner:
             control=self._control,
         )
 
-        env, self._controller = ModularRobotRerunner.robot_to_env(robot, get_pose)
+        env, self._controller = ModularRobotRerunner.robot_to_env(
+            actor, controller, get_pose
+        )
         batch.environments.append(env)
 
         runner = LocalRunner(headless=False)
         await runner.run_batch(batch)
 
     def _control(
-        self, environment_index: int, dt: float, control: ActorControl
+        self, environment_index: int, qpos, qvel, dt: float, control: ActorControl
     ) -> None:
-        self._controller.step(dt)
+        self._controller.step(qpos, qvel, dt)
         control.set_dof_targets(0, self._controller.get_dof_targets())
 
     @staticmethod
     def robot_to_env(
-        robot: ModularRobot,
+        actor,
+        controller,
         get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
     ) -> Environment:
         """
@@ -60,7 +64,6 @@ class ModularRobotRerunner:
             robot: ModularRobot to create Environment for
             get_pose: optional function for computing the initial pose of the robot
         """
-        actor, controller = robot.make_actor_and_controller()
         env = Environment()
         pos, rot = Vector3([0.0, 0.0, 0.1]), Quaternion()
         if get_pose is not None:
