@@ -4,7 +4,9 @@ import os
 from genericpath import isfile
 from typing_extensions import LiteralString
 
-DATABASE_PATH = "./database"
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+
+DATABASE_PATH = os.path.join(SCRIPT_DIR, "database")
 ANALYSIS_DIR_NAME = "analysis"
 LASTEST_RUN_FILENAME = "latest"
 

@@ -14,9 +14,14 @@ class ActorState:
     orientation: Quaternion
 
     # IDs of geometries (of this actor) in contact with ground
-    groundcontacts: Set[int] = None
+    groundcontacts: Set[int] | None = None
     # count of total geometries in Actor's morphology
-    numgeoms: int = None
+    numgeoms: int | None = None
+
+    # angles of each joint
+    qpos: List[float] | None = None
+    # velocities of each joint
+    qvel: List[float] | None = None
 
     # angles of each joint
     qpos: List[float] = None

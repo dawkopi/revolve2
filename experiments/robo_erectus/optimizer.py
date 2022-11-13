@@ -38,6 +38,11 @@ from genotypes.linear_controller_genotype import (
     LinearGenotypeSerializer,
 )
 
+import wandb
+from fitness import fitness_functions
+from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
+from measures import *
+
 
 class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
     """
@@ -308,6 +313,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
         environment_results = [br.environment_results[0] for br in batch_results]
 
+        logging.info(self._fitness_function)
         fitness = [
             fitness_functions[self._fitness_function](environment_result)
             for environment_result in environment_results
