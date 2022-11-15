@@ -16,6 +16,9 @@ from optimizer import Optimizer
 from utilities import *
 from genotypes.linear_controller_genotype import LinearControllerGenotype
 
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+ERECTUS_YAML = os.path.join(SCRIPT_DIR, "morphologies/erectus.yaml")
+
 
 async def main() -> None:
     """Run the optimization process."""
@@ -36,6 +39,13 @@ async def main() -> None:
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument(
+        "-m",
+        "--morphology",
+        type=str,
+        default=ERECTUS_YAML,
+        help="yaml file to use for robot's morphology",
+    )
+    parser.add_argument(
         "-f", "--fitness_function", default="with_control_height_cost"
     )  # "displacement_height_groundcontact"
     parser.add_argument(
@@ -54,6 +64,8 @@ async def main() -> None:
     if args.offspring_size is None:
         args.offspring_size = args.population_size
 
+    body_yaml = args.morphology
+    assert os.path.exists(body_yaml)
     ensure_dirs(DATABASE_PATH)
 
     # https://docs.wandb.ai/guides/track/advanced/resuming#resuming-guidance
@@ -108,7 +120,7 @@ async def main() -> None:
     innov_db_brain = multineat.InnovationDatabase()
 
     initial_population = [
-        LinearControllerGenotype.random() for _ in range(args.population_size)
+        LinearControllerGenotype.random(body_yaml) for _ in range(args.population_size)
     ]
 
     maybe_optimizer = await Optimizer.from_database(
@@ -141,11 +153,13 @@ async def main() -> None:
             offspring_size=args.offspring_size,
             fitness_function=args.fitness_function,
             headless=not args.gui,
+            body_yaml=body_yaml,
         )
 
     logging.info("Starting optimization process...")
 
     optimizer.n_jobs = args.n_jobs
+    optimizer.body_yaml = body_yaml
     await optimizer.run()
 
     logging.info("Finished optimizing.")

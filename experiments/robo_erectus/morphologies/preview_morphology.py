@@ -1,6 +1,7 @@
 """Visualize and run a modular robot using Mujoco."""
 
 import math
+import os
 from random import Random
 
 from pyrr import Quaternion, Vector3
@@ -11,6 +12,8 @@ from revolve2.core.physics.running import ActorControl, Batch, Environment, Pose
 from revolve2.runners.mujoco import LocalRunner
 
 from morphology import FixedBodyCreator
+
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class Simulator:
@@ -72,9 +75,9 @@ async def main() -> None:
     rng = Random()
     rng.seed(5)
 
-    path = "/home/dingkang/codes/revolve2/experiments/robo_erectus/morphologies/eretus.yaml"
-    eretus = FixedBodyCreator(path)
-    body = eretus.body
+    path = os.path.join(SCRIPT_DIR, "erectus.yaml")
+    erectus = FixedBodyCreator(path)
+    body = erectus.body
 
     brain = BrainCpgNetworkNeighbourRandom(rng)
     robot = ModularRobot(body, brain)

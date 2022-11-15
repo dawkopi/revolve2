@@ -79,19 +79,35 @@ async def main() -> None:
     body.core.back.attachment.attachment.left.attachment = ActiveHinge(math.pi / 2.0)
     body.core.back.attachment.attachment.left.attachment.attachment = Brick(0.0)
     body.core.back.attachment.attachment.left.attachment.attachment.left = Brick(0.0)
-    body.core.back.attachment.attachment.left.attachment.attachment.left.front = Brick(0.0)
-    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front = ActiveHinge(math.pi / 2.0)
-    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front.attachment = Brick(0.0)
-    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front.attachment.front = Brick(0.0)
+    body.core.back.attachment.attachment.left.attachment.attachment.left.front = Brick(
+        0.0
+    )
+    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front = (
+        ActiveHinge(math.pi / 2.0)
+    )
+    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front.attachment = Brick(
+        0.0
+    )
+    body.core.back.attachment.attachment.left.attachment.attachment.left.front.front.attachment.front = Brick(
+        0.0
+    )
 
     body.core.back.attachment.attachment.right = ActiveHinge(math.pi / 2.0)
     body.core.back.attachment.attachment.right.attachment = ActiveHinge(math.pi / 2.0)
     body.core.back.attachment.attachment.right.attachment.attachment = Brick(0.0)
     body.core.back.attachment.attachment.right.attachment.attachment.right = Brick(0.0)
-    body.core.back.attachment.attachment.right.attachment.attachment.right.front = Brick(0.0)
-    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front = ActiveHinge(math.pi / 2.0)
-    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front.attachment = Brick(0.0)
-    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front.attachment.front = Brick(0.0)
+    body.core.back.attachment.attachment.right.attachment.attachment.right.front = (
+        Brick(0.0)
+    )
+    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front = ActiveHinge(
+        math.pi / 2.0
+    )
+    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front.attachment = Brick(
+        0.0
+    )
+    body.core.back.attachment.attachment.right.attachment.attachment.right.front.front.attachment.front = Brick(
+        0.0
+    )
 
     body.finalize()
 

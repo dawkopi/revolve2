@@ -72,6 +72,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
     n_jobs: int = 1
 
+    _body_yaml: str
+
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
         database: AsyncEngine,
@@ -88,6 +90,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         num_generations: int,
         offspring_size: int,
         fitness_function: str,
+        body_yaml: str,
         headless: bool = True,
     ) -> None:
         """
@@ -132,6 +135,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         self._control_frequency = control_frequency
         self._num_generations = num_generations
         self._fitness_function = fitness_function
+        self._body_yaml = body_yaml
 
         # create database structure if not exists
         # TODO this works but there is probably a better way
@@ -283,8 +287,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 control=controller_wrapper._control,
             )
 
-            # pos, rot = actor_get_standing_pose(actor)
-            pos, rot = actor_get_default_pose(actor)
+            pos, rot = actor_get_standing_pose(actor)
+            # pos, rot = actor_get_default_pose(actor)
             env = Environment()
             env.actors.append(
                 PosedActor(
@@ -363,6 +367,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         )
 
 
+# TODO: add param for tweaking the initial pose (making it stochastic)
 def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
     """
     Given an actor, return a pose (such that it starts out "standing" upright).

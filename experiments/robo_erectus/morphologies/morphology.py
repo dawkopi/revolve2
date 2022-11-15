@@ -2,9 +2,12 @@
 Fixed morphology creator
 refer to ci-group/revolve/experiments/examples/yaml & revolve/pyrevolve/revolve_bot/revolve_bot.py 
 """
+import os
 import yaml
 import math
 from revolve2.core.modular_robot import ActiveHinge, Body, Core, Brick
+
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
 
 class FixedBodyCreator:
@@ -89,6 +92,6 @@ class FixedBodyCreator:
 
 
 if __name__ == "__main__":
-    path = "/home/dingkang/codes/revolve2/experiments/robo_erectus/morphologies/spider.yaml"
-    eretus = FixedBodyCreator(path)
-    body = eretus.body
+    path = os.path.join(SCRIPT_DIR, "spider.yaml")
+    erectus = FixedBodyCreator(path)
+    body = erectus.body

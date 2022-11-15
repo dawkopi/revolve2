@@ -1,7 +1,8 @@
+import os
 import numpy as np
 import math
 import sqlalchemy
-from typing import List
+from typing import List, Optional
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
@@ -9,14 +10,16 @@ from sqlalchemy.future import select
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
 from controllers.linear_controller import LinearController
 from revolve2.core.database import IncompatibleError, Serializer
+from morphologies.morphology import FixedBodyCreator
 
 
 class LinearControllerGenotype:
-    def __init__(self, genotype):
+    def __init__(self, genotype, yaml_file: str):
         self.genotype = genotype
+        self.yaml_file = yaml_file  # for morphology
 
     def develop(self):
-        actor, dof_ids = LinearControllerGenotype.develop_body()
+        actor, dof_ids = LinearControllerGenotype.develop_body(self.yaml_file)
 
         dof_size = len(dof_ids)
         input_size = LinearController.get_input_size(dof_size)
@@ -26,15 +29,22 @@ class LinearControllerGenotype:
         return actor, controller
 
     @classmethod
-    def random(cls):
-        _, dof_ids = LinearControllerGenotype.develop_body()
+    def random(cls, yaml_file: Optional[str]):
+        _, dof_ids = LinearControllerGenotype.develop_body(yaml_file)
         dof_size = len(dof_ids)
         input_size = LinearController.get_input_size(dof_size)
         genotype = np.random.normal(scale=0.1, size=(input_size, dof_size)).flatten()
-        return LinearControllerGenotype(genotype)
+        return LinearControllerGenotype(genotype, yaml_file)
 
     @staticmethod
-    def develop_body():
+    def develop_body(yaml_file: Optional[str]):
+        if yaml_file is not None:
+            assert os.path.exists(yaml_file)
+            body = FixedBodyCreator(yaml_file).body
+            actor, dof_ids = body.to_actor()
+            return actor, dof_ids
+
+        # fallback:
         # Hardcoded body; for now
         body = Body()
         body.core.front = ActiveHinge(math.pi / 2.0)
