@@ -3,6 +3,8 @@ import measures
 import numpy as np
 from revolve2.core.physics.running._results import EnvironmentResults
 
+import measures
+
 
 def displacement_height_groundcontact(environment_results: EnvironmentResults) -> float:
     """TODO."""
