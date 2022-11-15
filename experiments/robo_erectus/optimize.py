@@ -36,7 +36,7 @@ async def main() -> None:
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument(
-        "-f", "--fitness_function", default="with_control_height_cost"
+        "-f", "--fitness_function", default="with_control_cost"
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",

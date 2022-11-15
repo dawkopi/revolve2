@@ -37,19 +37,19 @@ class LinearControllerGenotype:
     def develop_body():
         # Hardcoded body; for now
         body = Body()
-        body.core.front = ActiveHinge(math.pi / 2.0)
+        body.core.front = ActiveHinge(0)
         body.core.front._absolute_rotation = 0
         body.core.front.attachment = ActiveHinge(math.pi / 2.0)
         body.core.front.attachment._absolute_rotation = 0
-        body.core.left = ActiveHinge(math.pi / 2.0)
+        body.core.left = ActiveHinge(0)
         body.core.left._absolute_rotation = 0
         body.core.left.attachment = ActiveHinge(math.pi / 2.0)
         body.core.left.attachment._absolute_rotation = 0
-        body.core.right = ActiveHinge(math.pi / 2.0)
+        body.core.right = ActiveHinge(0)
         body.core.right._absolute_rotation = 0
         body.core.right.attachment = ActiveHinge(math.pi / 2.0)
         body.core.right.attachment._absolute_rotation = 0
-        body.core.back = ActiveHinge(math.pi / 2.0)
+        body.core.back = ActiveHinge(0)
         body.core.back._absolute_rotation = 0
         body.core.back.attachment = ActiveHinge(math.pi / 2.0)
         body.core.back.attachment._absolute_rotation = 0

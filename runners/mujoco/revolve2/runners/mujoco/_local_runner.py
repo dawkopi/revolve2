@@ -258,10 +258,12 @@ class LocalRunner(Runner):
             robot = mjcf.from_file(botfile)
             botfile.close()
 
+            force_range = 0.948
             for joint in posed_actor.actor.joints:
                 robot.actuator.add(
                     "position",
                     kp=5.0,
+                    forcerange=f"{-force_range} {force_range}",
                     joint=robot.find(
                         namespace="joint",
                         identifier=joint.name,
@@ -269,7 +271,8 @@ class LocalRunner(Runner):
                 )
                 robot.actuator.add(
                     "velocity",
-                    kv=0.05,
+                    kv=0.1,
+                    forcerange=f"{-force_range} {force_range}",
                     joint=robot.find(namespace="joint", identifier=joint.name),
                 )
 
