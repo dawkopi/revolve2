@@ -13,7 +13,6 @@ from revolve2.runners.mujoco import LocalRunner, ModularRobotRerunner
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 
-from genotype import GenotypeSerializer, develop
 from optimizer import actor_get_standing_pose
 from utilities import *
 
@@ -88,7 +87,6 @@ async def main() -> None:
         for i in range(len(best_individuals)):
             res = best_individuals[i]
             genotype = (
-                # await GenotypeSerializer.from_database(
                 await LinearGenotypeSerializer.from_database(
                     session, [res[0].genotype_id]
                 )
@@ -98,9 +96,7 @@ async def main() -> None:
                 f"rank: {i}, individual_id: {ind_id}, genotype_id: {res[0].genotype_id}, fitness: {res[1].value:0.5f}"
             )
 
-            genotype = (
-                await GenotypeSerializer.from_database(session, [res[0].genotype_id])
-            )[0]
+            rerunner = ModularRobotRerunner()
 
             # pose_getter = actor_get_standing_pose
             pose_getter = actor_get_default_pose

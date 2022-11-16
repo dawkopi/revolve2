@@ -16,6 +16,22 @@ def control_cost(environment_results: EnvironmentResults) -> float:
     return float(np.sum(control_costs))
 
 
+# def control_cost(environment_results: EnvironmentResults) -> float:
+#     actions = sum(
+#         [state.actions for state in environment_results.environment_states], []
+#     )
+#     control_costs = [np.sum(np.square(action)) for action in actions]
+#     return float(np.sum(control_costs))
+
+
+def directed_displacement_measure(environment_results: EnvironmentResults) -> float:
+    begin_state = environment_results.environment_states[0].actor_states[0]
+    end_state = environment_results.environment_states[-1].actor_states[0]
+    distance = (begin_state.position[0] - end_state.position[0]) ** 2
+    distance = distance - abs(begin_state.position[1] - end_state.position[1])
+    return float(distance)
+
+
 def displacement_measure(environment_results: EnvironmentResults) -> float:
     """Measure how far robot moved from start to end of simulation."""
     begin_state = environment_results.environment_states[0].actor_states[0]
@@ -25,6 +41,13 @@ def displacement_measure(environment_results: EnvironmentResults) -> float:
         + ((begin_state.position[1] - end_state.position[1]) ** 2)
     )
     return float(distance)
+
+
+def average_height_measure(environment_results: EnvironmentResults) -> float:
+    heights = [
+        s.actor_states[0].position[2] for s in environment_results.environment_states
+    ]
+    return float(sum(heights) / len(heights))
 
 
 def max_height_relative_to_avg_height_measure(

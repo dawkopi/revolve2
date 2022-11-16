@@ -30,7 +30,7 @@ async def main() -> None:
     parser.add_argument("--num_initial_mutations", type=int, default=10)
     parser.add_argument("-t", "--simulation_time", type=int, default=30)
     parser.add_argument("--sampling_frequency", type=float, default=10)
-    parser.add_argument("--control_frequency", type=float, default=1)
+    parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
     parser.add_argument("--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
@@ -46,7 +46,7 @@ async def main() -> None:
         help="yaml file to use for robot's morphology",
     )
     parser.add_argument(
-        "-f", "--fitness_function", default="with_control_height_cost"
+        "-f", "--fitness_function", default="with_control_cost"
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",

@@ -13,7 +13,7 @@ class LinearController(ActorController):
         self.state = np.matmul(input, self.policy)
 
     def get_dof_targets(self) -> List[float]:
-        return np.clip(self.state.tolist(), -1.0, 1.0)
+        return self.state.tolist()
 
     @staticmethod
     def get_input_size(dof_size: int) -> int:

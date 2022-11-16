@@ -40,7 +40,6 @@ from genotypes.linear_controller_genotype import (
 
 import wandb
 from fitness import fitness_functions
-from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
 from measures import *
 
 
@@ -239,7 +238,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
         # elitism
 
-        elite_size = len(old_individuals) // 10
+        elite_size = max([1, len(old_individuals) // 10])
         non_elite_size = len(old_individuals) - elite_size
 
         old_survivors = selection.topn(elite_size, old_individuals, old_fitnesses)
@@ -262,7 +261,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         return parents[0]
 
     def _mutate(self, genotype: LinearControllerGenotype) -> LinearControllerGenotype:
-        genotype.genotype += np.random.normal(scale=0.01, size=genotype.genotype.shape)
+        genotype.genotype += np.random.normal(scale=0.1, size=genotype.genotype.shape)
         return genotype
 
     async def _evaluate_generation(
