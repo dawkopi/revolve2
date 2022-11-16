@@ -8,7 +8,7 @@ from numpy import average
 from revolve2.core.physics.running._results import EnvironmentResults
 
 
-def control_diff_cost(environment_results: EnvironmentResults) -> float:
+def control_cost(environment_results: EnvironmentResults) -> float:
     action_diffs = sum(
         [state.action_diffs for state in environment_results.environment_states], []
     )
@@ -16,12 +16,12 @@ def control_diff_cost(environment_results: EnvironmentResults) -> float:
     return float(np.sum(control_costs))
 
 
-def control_cost(environment_results: EnvironmentResults) -> float:
-    actions = sum(
-        [state.actions for state in environment_results.environment_states], []
-    )
-    control_costs = [np.sum(np.square(action)) for action in actions]
-    return float(np.sum(control_costs))
+# def control_cost(environment_results: EnvironmentResults) -> float:
+#     actions = sum(
+#         [state.actions for state in environment_results.environment_states], []
+#     )
+#     control_costs = [np.sum(np.square(action)) for action in actions]
+#     return float(np.sum(control_costs))
 
 
 def directed_displacement_measure(environment_results: EnvironmentResults) -> float:

@@ -5,7 +5,7 @@ from revolve2.core.physics.running._results import EnvironmentResults
 
 import measures
 
-control_cost_weight = 0.5
+control_cost_weight = 1e-7
 
 
 def displacement_height_groundcontact(environment_results: EnvironmentResults) -> float:

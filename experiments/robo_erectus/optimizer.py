@@ -257,7 +257,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         return parents[0]
 
     def _mutate(self, genotype: LinearControllerGenotype) -> LinearControllerGenotype:
-        genotype.genotype += np.random.normal(scale=0.01, size=genotype.genotype.shape)
+        genotype.genotype += np.random.normal(scale=0.1, size=genotype.genotype.shape)
         return genotype
 
     async def _evaluate_generation(

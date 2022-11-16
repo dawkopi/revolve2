@@ -96,12 +96,6 @@ async def main() -> None:
                 f"rank: {i}, individual_id: {ind_id}, genotype_id: {res[0].genotype_id}, fitness: {res[1].value:0.5f}"
             )
 
-            genotype = (
-                await LinearGenotypeSerializer.from_database(
-                    session, [res[0].genotype_id]
-                )
-            )[0]
-
             rerunner = ModularRobotRerunner()
 
             # pose_getter = actor_get_standing_pose

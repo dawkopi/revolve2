@@ -271,7 +271,7 @@ class LocalRunner(Runner):
                 )
                 robot.actuator.add(
                     "velocity",
-                    kv=0.1,
+                    kv=0.2,
                     forcerange=f"{-force_range} {force_range}",
                     joint=robot.find(namespace="joint", identifier=joint.name),
                 )
