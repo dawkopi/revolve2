@@ -8,7 +8,12 @@ class ControllerWrapper:
         self.controller = controller
 
     def _control(
-        self, environment_index: int, qpos, qvel, dt: float, control: ActorControl
+        self,
+        environment_index: int,
+        hinge_angles,
+        hinge_vels,
+        dt: float,
+        control: ActorControl,
     ) -> None:
-        self.controller.step(qpos, qvel, dt)
+        self.controller.step(hinge_angles, hinge_vels, dt)
         control.set_dof_targets(0, self.controller.get_dof_targets())

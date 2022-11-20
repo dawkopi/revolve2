@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import List, Set
+from typing import List, Set, Optional
 
 from pyrr import Quaternion, Vector3
 
@@ -14,19 +14,14 @@ class ActorState:
     orientation: Quaternion
 
     # IDs of geometries (of this actor) in contact with ground
-    groundcontacts: Set[int] | None = None
+    groundcontacts: Optional[Set[int]] = None
     # count of total geometries in Actor's morphology
-    numgeoms: int | None = None
+    numgeoms: Optional[int] = None
 
-    # angles of each joint
-    qpos: List[float] | None = None
-    # velocities of each joint
-    qvel: List[float] | None = None
-
-    # angles of each joint
-    qpos: List[float] = None
-    # velocities of each joint
-    qvel: List[float] = None
+    # angles of each hinge joint
+    hinge_angles: List[float] | None = None
+    # velocities of each hinge joint
+    hinge_vels: List[float] | None = None
 
 
 @dataclass

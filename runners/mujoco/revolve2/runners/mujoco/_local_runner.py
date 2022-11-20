@@ -1,6 +1,6 @@
 import math
 import tempfile
-from typing import List
+from typing import List, Set
 
 import cv2
 import mujoco_viewer
@@ -128,7 +128,22 @@ class LocalRunner(Runner):
                     control = ActorControl()
                     qpos = data.qpos
                     qvel = data.qvel
-                    batch.control(env_index, qpos, qvel, control_step, control)
+
+                    # get actor state so we can read joint angles/velocities
+                    actor_state = self._get_actor_states(
+                        env_descr,
+                        data,
+                        model,
+                        ground_contacts=False,
+                    )[0]
+
+                    batch.control(
+                        env_index,
+                        actor_state.hinge_angles,
+                        actor_state.hinge_vels,
+                        control_step,
+                        control,
+                    )
                     actor_targets = control._dof_targets
                     action = control._dof_targets[0][1]
                     actions.append(action)
@@ -156,11 +171,19 @@ class LocalRunner(Runner):
                             time,
                             actions,
                             action_diffs,
-                            self._get_actor_states(env_descr, data, model),
+                            self._get_actor_states(
+                                env_descr,
+                                data,
+                                model,
+                            ),
                         )
                     )
                     actions = []
                     action_diffs = []
+
+                    env_states = results.environment_results[
+                        env_index
+                    ].environment_states
 
                 # step simulation
                 mujoco.mj_step(model, data)
@@ -299,15 +322,23 @@ class LocalRunner(Runner):
 
     @classmethod
     def _get_actor_states(
-        cls, env_descr: Environment, data: mujoco.MjData, model: mujoco.MjModel
+        cls,
+        env_descr: Environment,
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        ground_contacts: bool = True,
     ) -> List[ActorState]:
         return [
-            cls._get_actor_state(i, data, model) for i in range(len(env_descr.actors))
+            cls._get_actor_state(i, data, model, ground_contacts)
+            for i in range(len(env_descr.actors))
         ]
 
     @staticmethod
     def _get_actor_state(
-        robot_index: int, data: mujoco.MjData, model: mujoco.MjModel
+        robot_index: int,
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        ground_contacts: bool = True,  # whether to track ground contacts (could be slow)
     ) -> ActorState:
         robotname = f"robot_{robot_index}/"  # the slash is added by dm_control. ugly but deal with it
         bodyid = mujoco.mj_name2id(
@@ -323,27 +354,47 @@ class LocalRunner(Runner):
         position = Vector3([n for n in data.qpos[qindex : qindex + 3]])
         orientation = Quaternion([n for n in data.qpos[qindex + 3 : qindex + 3 + 4]])
 
-        contacts = data.contact
-        # https://mujoco.readthedocs.io/en/latest/overview.html#floating-objects
-        groundid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "ground")
+        geomids: Optional[Set[int]] = None
+        numgeoms: Optional[int] = None
+        if ground_contacts:
+            contacts = data.contact
+            # https://mujoco.readthedocs.io/en/latest/overview.html#floating-objects
+            groundid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "ground")
 
-        geomids = set()  # ids of geometries in contact with ground
-        for c in contacts:
-            if groundid in [c.geom1, c.geom2] and c.geom1 != c.geom2:
-                otherid = c.geom1 if c.geom2 == groundid else c.geom2
-                othername = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, otherid)
-                # logging.debug(f"found ground collision with geom ID: {otherid} (name '{othername}')")
-                if not othername.startswith(robotname):
-                    continue  # ensure contact is with part of the robot (e.g. not obstacle and ground)
-                geomids.add(otherid)
+            geomids = set()  # ids of geometries in contact with ground
+            for c in contacts:
+                if groundid in [c.geom1, c.geom2] and c.geom1 != c.geom2:
+                    otherid = c.geom1 if c.geom2 == groundid else c.geom2
+                    othername = mujoco.mj_id2name(
+                        model, mujoco.mjtObj.mjOBJ_GEOM, otherid
+                    )
+                    # logging.debug(f"found ground collision with geom ID: {otherid} (name '{othername}')")
+                    if not othername.startswith(robotname):
+                        continue  # ensure contact is with part of the robot (e.g. not obstacle and ground)
+                    geomids.add(otherid)
 
-        # if len(geomids) > 0:
-        #    logging.debug(f"found {len(geomids)} total geoms in contact with ground")
-        #    names = list([mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, curid) for curid in geomids])
-        #    logging.debug(names)
+            # if len(geomids) > 0:
+            #    logging.debug(f"found {len(geomids)} total geoms in contact with ground")
+            #    names = list([mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, curid) for curid in geomids])
+            #    logging.debug(names)
+
+        # track states of hinge joints
+        #   for reference see mjmodel.h and simulate.cc:makejoint()
+        jnt_hinge_indices = [
+            i
+            for i, val in enumerate(model.jnt_type)
+            if val == mujoco.mjtJoint.mjJNT_HINGE
+        ]
+        hinge_angles = [data.qpos[model.jnt_qposadr[i]] for i in jnt_hinge_indices]
+        hinge_vels = [data.qvel[model.jnt_dofadr[i]] for i in jnt_hinge_indices]
 
         return ActorState(
-            position, orientation, geomids, model.ngeom, data.qpos, data.qvel
+            position,
+            orientation,
+            geomids,
+            model.ngeom,
+            hinge_angles,
+            hinge_vels,
         )
 
     @staticmethod

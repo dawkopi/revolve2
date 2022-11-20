@@ -8,18 +8,16 @@ class LinearController(ActorController):
         self.policy = policy
         self.state = np.zeros(policy.shape[1])
 
-    def step(self, qpos, qvel, dt: float) -> None:
-        input = np.concatenate([qpos, qvel]).ravel()
-        self.state = np.matmul(input, self.policy)
+    def step(self, hinge_angles, hinge_vels, dt: float) -> None:
+        inputs = np.concatenate([hinge_angles, hinge_vels]).ravel()
+        self.state = np.matmul(inputs, self.policy)
 
     def get_dof_targets(self) -> List[float]:
         return self.state.tolist()
 
     @staticmethod
     def get_input_size(dof_size: int) -> int:
-        # TODO: calculate number of elements from qpos & qval
-        return 29
-        # return dof_size * 4 + 1
+        return dof_size * 2
 
     def serialize(self):
         pass
