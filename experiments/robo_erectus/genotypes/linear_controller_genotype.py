@@ -111,7 +111,7 @@ class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
 
     @classmethod
     async def from_database(
-        cls, session: AsyncSession, ids: List[int]
+        cls, session: AsyncSession, ids: List[int], body_yaml: str
     ) -> List[LinearControllerGenotype]:
         rows = (
             (await session.execute(select(DbGenotype).filter(DbGenotype.id.in_(ids))))
@@ -125,7 +125,7 @@ class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
         id_map = {t.id: t for t in rows}
         genotypes = [
             LinearControllerGenotype(
-                np.fromstring(id_map[id].serialized_genome, dtype=float)
+                np.fromstring(id_map[id].serialized_genome, dtype=float), body_yaml
             )
             for id in ids
         ]

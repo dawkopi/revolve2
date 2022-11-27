@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Setup and running of the optimize modular program."""
-
 import argparse
 import glob
 import logging
 import subprocess
+import numpy as np
 from random import Random
 
 import multineat
@@ -12,7 +12,9 @@ from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
 
 import wandb
-from optimizer import Optimizer
+
+from optimizer import Optimizer as EaOptimzer
+from optimizers.cma_optimizer import CmaEsOptimizer
 from utilities import *
 from genotypes.linear_controller_genotype import LinearControllerGenotype
 
@@ -59,10 +61,12 @@ async def main() -> None:
         action="store_true",
         help="run with non-headless mode (view sim window)",
     )
+    parser.add_argument(
+        "--use_cma",
+        action="store_true",
+        help="use CMA-ES as optimizer of controller",
+    )
     args = parser.parse_args()
-
-    if args.offspring_size is None:
-        args.offspring_size = args.population_size
 
     body_yaml = args.morphology
     assert os.path.exists(body_yaml)
@@ -119,9 +123,30 @@ async def main() -> None:
     innov_db_body = multineat.InnovationDatabase()
     innov_db_brain = multineat.InnovationDatabase()
 
+    if args.use_cma:
+        Optimizer = CmaEsOptimizer
+        logging.info(
+            "CMA-ES start from an original individual, population size will be ignored."
+        )
+        args.population_size = 1
+
     initial_population = [
         LinearControllerGenotype.random(body_yaml) for _ in range(args.population_size)
     ]
+
+    if args.use_cma:
+        logging.info("CMA-ES self-adapt offspring size. (if not given)")
+        args.population_size = 1
+        if args.offspring_size is None:
+            N = initial_population[0].genotype.shape[0]
+            # self-adapted new generation size used in cma-es
+            args.offspring_size = int(4 + 3 * np.log(N))
+    else:
+        Optimizer = EaOptimzer
+
+    # this if statement must be used after 'if args.use_cma:'
+    if args.offspring_size is None:
+        args.offspring_size = args.population_size
 
     maybe_optimizer = await Optimizer.from_database(
         database=database,

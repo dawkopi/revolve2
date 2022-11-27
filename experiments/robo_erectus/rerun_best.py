@@ -21,6 +21,9 @@ from genotypes.linear_controller_genotype import (
     LinearGenotypeSerializer,
 )
 
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+ERECTUS_YAML = os.path.join(SCRIPT_DIR, "morphologies/erectus.yaml")
+
 
 async def main() -> None:
     """Run the script."""
@@ -36,6 +39,12 @@ async def main() -> None:
     )
     parser.add_argument("-l", "--load_latest", action="store_true")
     parser.add_argument("-n", "--run_name", type=str, default="default")
+    parser.add_argument(
+        "-s",
+        "--stand",
+        action="store_true",
+        help="set the robot starts from 'standing' upright",
+    )
     parser.add_argument(
         "-c",
         "--count",
@@ -88,7 +97,7 @@ async def main() -> None:
             res = best_individuals[i]
             genotype = (
                 await LinearGenotypeSerializer.from_database(
-                    session, [res[0].genotype_id]
+                    session, [res[0].genotype_id], ERECTUS_YAML
                 )
             )[0]
             ind_id = res[0].individual_id
@@ -98,8 +107,10 @@ async def main() -> None:
 
             rerunner = ModularRobotRerunner()
 
-            # pose_getter = actor_get_standing_pose
-            pose_getter = actor_get_default_pose
+            if args.stand:
+                pose_getter = actor_get_standing_pose
+            else:
+                pose_getter = actor_get_default_pose
 
             actor, controller = genotype.develop()
             env, _ = ModularRobotRerunner.robot_to_env(actor, controller, pose_getter)
