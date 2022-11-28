@@ -134,8 +134,6 @@ class LocalRunner(Runner):
                 if time >= last_control_time + control_step:
                     last_control_time = math.floor(time / control_step) * control_step
                     control = ActorControl()
-                    qpos = data.qpos
-                    qvel = data.qvel
 
                     # get actor state so we can read joint angles/velocities
                     actor_state = self._get_actor_states(
@@ -190,10 +188,14 @@ class LocalRunner(Runner):
                     actions = []
                     action_diffs = []
 
+                    # TODO: should we do this more frequently than sample_step?
                     if is_healthy is not None:
                         actor_state = env_state.actor_states[0]
                         if not is_healthy(actor_state):
                             # end the simulation
+                            logging.debug(
+                                f"stopping sim at time {time:0.3f} due to unhealthy actor!"
+                            )
                             break
 
                 # step simulation

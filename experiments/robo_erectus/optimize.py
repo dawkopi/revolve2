@@ -48,7 +48,10 @@ async def main() -> None:
         help="yaml file to use for robot's morphology",
     )
     parser.add_argument(
-        "-f", "--fitness_function", default="with_control_cost"
+        "-f",
+        "--fitness_function",
+        # default="with_control_cost",
+        default="health_with_control_cost",
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",
@@ -158,11 +161,11 @@ async def main() -> None:
         headless=not args.gui,
     )
     if maybe_optimizer is not None:
-        logging.info("Initialized with existing database...")
+        logging.info(f"Initialized with existing database: '{database_dir}'")
         # TODO: if run is already finished, don't log it to wandb
         optimizer = maybe_optimizer
     else:
-        logging.info("Initialized a new experiment...")
+        logging.info(f"Initialized a new experiment: '{database_dir}'")
         optimizer = await Optimizer.new(
             database=database,
             process_id=process_id,

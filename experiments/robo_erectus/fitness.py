@@ -3,6 +3,7 @@ import measures
 import numpy as np
 from revolve2.core.physics.running._results import EnvironmentResults
 
+import logging
 import measures
 
 control_cost_weight = 1e-7
@@ -49,10 +50,23 @@ def displacement_with_height_reward(environment_results: EnvironmentResults) -> 
     )
 
 
+def health_with_control_cost(environment_results: EnvironmentResults) -> float:
+    base_fitness = measures.displacement_measure(environment_results)
+    control_cost = control_cost_weight * measures.control_cost(environment_results)
+
+    total_steps = len(environment_results.environment_states)
+    HEALTHY_STEP_REWARD = 0.05
+    # (experiment should have stopped when an unhealthy step was reached)
+    healthy_reward = total_steps * HEALTHY_STEP_REWARD
+
+    logging.debug(f"fitness: {base_fitness}, {control_cost}")
+    return base_fitness - control_cost + healthy_reward
+
+
 def with_control_cost(environment_results: EnvironmentResults) -> float:
     base_fitness = measures.displacement_measure(environment_results)
     control_cost = control_cost_weight * measures.control_cost(environment_results)
-    print(base_fitness, control_cost)
+    logging.debug(f"fitness: {base_fitness}, {control_cost}")
     return base_fitness - control_cost
 
 
@@ -77,6 +91,7 @@ fitness_functions = {
     "displacement_height_groundcontact": displacement_height_groundcontact,
     "displacement_height": displacement_height,
     "displacement_only": displacement_only,
+    "health_with_control_cost": health_with_control_cost,
     "with_control_cost": with_control_cost,
     "with_control_height_cost": with_control_height_cost,
     "directed_displacement_only": directed_displacement_only,
