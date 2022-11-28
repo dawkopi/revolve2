@@ -145,8 +145,7 @@ class LocalRunner(Runner):
 
                     batch.control(
                         env_index,
-                        actor_state.hinge_angles,
-                        actor_state.hinge_vels,
+                        actor_state,
                         control_step,
                         control,
                     )

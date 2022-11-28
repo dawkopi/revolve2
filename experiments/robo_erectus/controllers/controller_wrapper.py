@@ -1,4 +1,4 @@
-from revolve2.core.physics.running import ActorControl
+from revolve2.core.physics.running import ActorControl, ActorState
 
 
 class ControllerWrapper:
@@ -10,10 +10,9 @@ class ControllerWrapper:
     def _control(
         self,
         environment_index: int,
-        hinge_angles,
-        hinge_vels,
+        state: ActorState,
         dt: float,
         control: ActorControl,
     ) -> None:
-        self.controller.step(hinge_angles, hinge_vels, dt)
+        self.controller.step(state, dt)
         control.set_dof_targets(0, self.controller.get_dof_targets())
