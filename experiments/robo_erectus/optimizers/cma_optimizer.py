@@ -45,6 +45,10 @@ from genotypes.linear_controller_genotype import (
 import wandb
 from fitness import fitness_functions
 from measures import *
+from utilities import (
+    actor_get_default_pose,
+    actor_get_standing_pose,
+)
 
 
 class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
@@ -311,40 +315,6 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
                 fitness_function=self._fitness_function,
             )
         )
-
-
-# TODO: add param for tweaking the initial pose (making it stochastic)
-def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """
-    Given an actor, return a pose (such that it starts out "standing" upright).
-
-    Returns tuple (pos, rot).
-    """
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            # due to rotating about the y axis, the box's x size becomes the new effective "z" height of the box
-            bounding_box.size.x / 2.0 - bounding_box.offset.x,
-        ]
-    )
-    rot = Quaternion.from_y_rotation(np.pi / 2)
-    return (pos, rot)
-
-
-def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """Original method of computing initial pose for an Actor (so it starts "flat" on the ground)."""
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-        ]
-    )
-    rot = Quaternion()
-    return (pos, rot)
 
 
 DbBase = declarative_base()

@@ -9,6 +9,7 @@ import multineat
 import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
+from revolve2.core.physics.running._results import ActorState
 import sqlalchemy
 import wandb
 from fitness import fitness_functions
@@ -41,6 +42,8 @@ from genotypes.linear_controller_genotype import (
 import wandb
 from fitness import fitness_functions
 from measures import *
+import utilities
+from utilities import actor_get_default_pose, actor_get_standing_pose
 
 
 class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
@@ -299,7 +302,17 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             )
             batch.environments.append(env)
 
-            return LocalRunner(headless=headless).run_batch_sync(batch)
+            # xml_string = LocalRunner._make_mjcf(env)
+            # with open("/tmp/cur.xml", "w") as f:
+            #    f.write(xml_string)
+            # print(f"wrote: /tmp/cur.xml")
+
+            def is_healthy(state: ActorState):
+                return utilities.is_healthy_state(state, 0.4)
+
+            return LocalRunner(headless=headless).run_batch_sync(
+                batch, is_healthy=is_healthy
+            )
 
         logging.info(
             f"Starting simulation batch with mujoco - {len(genotypes)} evaluations."
@@ -364,40 +377,6 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 fitness_function=self._fitness_function,
             )
         )
-
-
-# TODO: add param for tweaking the initial pose (making it stochastic)
-def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """
-    Given an actor, return a pose (such that it starts out "standing" upright).
-
-    Returns tuple (pos, rot).
-    """
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            # due to rotating about the y axis, the box's x size becomes the new effective "z" height of the box
-            bounding_box.size.x / 2.0 - bounding_box.offset.x,
-        ]
-    )
-    rot = Quaternion.from_y_rotation(np.pi / 2)
-    return (pos, rot)
-
-
-def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """Original method of computing initial pose for an Actor (so it starts "flat" on the ground)."""
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-        ]
-    )
-    rot = Quaternion()
-    return (pos, rot)
 
 
 DbBase = declarative_base()

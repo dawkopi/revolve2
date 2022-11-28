@@ -38,6 +38,7 @@ from revolve2.core.physics.running import (
     EnvironmentState,
     Runner,
 )
+from typing import Callable, Optional
 
 
 class LocalRunner(Runner):
@@ -53,19 +54,26 @@ class LocalRunner(Runner):
         """
         self._headless = headless
 
-    def run_batch_sync(self, batch: Batch, video_path: str = "") -> BatchResults:
-        return self._run_batch(batch, video_path)
+    def run_batch_sync(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
+        return self._run_batch(batch, is_healthy=is_healthy, video_path=video_path)
 
-    async def run_batch(self, batch: Batch, video_path: str = "") -> BatchResults:
+    async def run_batch(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
 
         :param batch: The batch to run.
+        :param is_healthy: function that evaluates whether the robot is in a "healthy state". (If not the simulation should be terminated).
         :returns: List of simulation states in ascending order of time.
         """
-        return self._run_batch(batch, video_path)
+        return self._run_batch(batch, is_healthy=is_healthy, video_path=video_path)
 
-    def _run_batch(self, batch: Batch, video_path: str = "") -> BatchResults:
+    def _run_batch(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
         logging.info("Starting simulation batch with mujoco.")
         video_fps = 24
         control_step = 1 / batch.control_frequency * 2
@@ -166,24 +174,27 @@ class LocalRunner(Runner):
                 # sample state if it is time
                 if time >= last_sample_time + sample_step:
                     last_sample_time = int(time / sample_step) * sample_step
+                    env_state = EnvironmentState(
+                        time,
+                        actions,
+                        action_diffs,
+                        self._get_actor_states(
+                            env_descr,
+                            data,
+                            model,
+                        ),
+                    )
                     results.environment_results[env_index].environment_states.append(
-                        EnvironmentState(
-                            time,
-                            actions,
-                            action_diffs,
-                            self._get_actor_states(
-                                env_descr,
-                                data,
-                                model,
-                            ),
-                        )
+                        env_state
                     )
                     actions = []
                     action_diffs = []
 
-                    env_states = results.environment_results[
-                        env_index
-                    ].environment_states
+                    if is_healthy is not None:
+                        actor_state = env_state.actor_states[0]
+                        if not is_healthy(actor_state):
+                            # end the simulation
+                            break
 
                 # step simulation
                 mujoco.mj_step(model, data)
