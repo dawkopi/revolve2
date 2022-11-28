@@ -17,7 +17,7 @@ import wandb
 
 from fitness import fitness_functions
 from measures import *
-from pyrr import Quaternion, Vector3
+from revolve2.core.physics.running._results import ActorState
 from revolve2.actor_controller import ActorController
 from revolve2.core.database import IncompatibleError
 from revolve2.core.database.serializers import FloatSerializer
@@ -45,6 +45,7 @@ from genotypes.linear_controller_genotype import (
 import wandb
 from fitness import fitness_functions
 from measures import *
+import utilities
 from utilities import (
     actor_get_default_pose,
     actor_get_standing_pose,
@@ -252,7 +253,12 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
             )
             batch.environments.append(env)
 
-            return LocalRunner(headless=headless).run_batch_sync(batch)
+            def is_healthy(state: ActorState):
+                return utilities.is_healthy_state(state, 0.4)
+
+            return LocalRunner(headless=headless).run_batch_sync(
+                batch, is_healthy=is_healthy
+            )
 
         logging.info(
             f"Starting simulation batch with mujoco - {len(genotypes)} evaluations."

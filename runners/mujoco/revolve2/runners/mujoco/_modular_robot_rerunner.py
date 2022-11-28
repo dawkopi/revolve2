@@ -8,6 +8,7 @@ from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+from revolve2.core.physics.running._results import ActorState
 
 from revolve2.runners.mujoco import LocalRunner
 
@@ -51,9 +52,13 @@ class ModularRobotRerunner:
         await runner.run_batch(batch, video_path=video_path)
 
     def _control(
-        self, environment_index: int, qpos, qvel, dt: float, control: ActorControl
+        self,
+        environment_index: int,
+        state: ActorState,
+        dt: float,
+        control: ActorControl,
     ) -> None:
-        self._controller.step(qpos, qvel, dt)
+        self._controller.step(state, dt)
         control.set_dof_targets(0, self._controller.get_dof_targets())
 
     @staticmethod

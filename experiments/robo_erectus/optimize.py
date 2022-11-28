@@ -65,6 +65,7 @@ async def main() -> None:
         help="run with non-headless mode (view sim window)",
     )
     parser.add_argument(
+        "-cma",
         "--use_cma",
         action="store_true",
         help="use CMA-ES as optimizer of controller",
