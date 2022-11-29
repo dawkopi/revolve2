@@ -285,9 +285,14 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
 
     def _log_results(self) -> None:
         displacement = [displacement_measure(r) for r in self._latest_results]
+        steps = [len(r.environment_states) for r in self._latest_results]
 
         wandb.log(
             {
+                "steps_max": max(steps),
+                "steps_avg": sum(steps) / len(steps),
+                "steps_min": min(steps),
+                "steps": wandb.Histogram(steps),
                 "displacement_max": max(displacement),
                 "displacement_avg": sum(displacement) / len(displacement),
                 "displacement_min": min(displacement),
