@@ -61,6 +61,12 @@ async def main() -> None:
         help="output the best robots to disk",
     )
     parser.add_argument(
+        "--best_dur",
+        type=int,
+        default=30,
+        help="duration for rerun_best.py",
+    )
+    parser.add_argument(
         "--gui",
         action="store_true",
         help="run with non-headless mode (view sim window)",
@@ -195,7 +201,7 @@ async def main() -> None:
 
     if args.save_best:
         logging.info("\n\nrunning rerun_best.py")
-        call_rerun_best(run_name=args.run_name, count=4)
+        call_rerun_best(run_name=args.run_name, count=4, dur_sec=args.best_dur)
         if args.wandb:
             # now save files wandb if needed
             analysis_dir = os.path.join(database_dir, "analysis")
@@ -237,7 +243,7 @@ def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
     logging.debug(" ".join(cmd))
     res = subprocess.run(cmd, stdout=subprocess.PIPE)
     if res.returncode != 0:
-        logging.error(f"rerun_best.py failed with code {res.return_code}")
+        logging.error(f"rerun_best.py failed with code {res.returncode}")
 
 
 if __name__ == "__main__":

@@ -87,7 +87,7 @@ def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
 
 
 def is_healthy_state(
-    state: ActorState, min_z: Optional[float], max_z: Optional[float] = None
+    state: ActorState, min_z: float, max_z: Optional[float] = None
 ) -> bool:
     """
     Indicates whether actor is in a healthy state (e.g. hasn't fallen over).

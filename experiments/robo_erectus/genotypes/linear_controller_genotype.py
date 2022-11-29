@@ -10,6 +10,7 @@ from sqlalchemy.future import select
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
 from controllers.linear_controller import LinearController
 from revolve2.core.database import IncompatibleError, Serializer
+from revolve2.core.physics.actor import Actor
 from morphologies.morphology import FixedBodyCreator, MORPHOLOGIES
 
 
@@ -29,8 +30,8 @@ class LinearControllerGenotype:
 
         return actor, controller
 
-    def get_initial_pose(self):
-        return MORPHOLOGIES[self.body_name]["get_pose"]
+    def get_initial_pose(self, actor: Actor):
+        return MORPHOLOGIES[self.body_name]["get_pose"](actor)
 
     @classmethod
     def random(cls, body_name: str):
@@ -91,6 +92,9 @@ class DbGenotype(DbBase):
         primary_key=True,
     )
     serialized_genome = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    body_name = sqlalchemy.Column(
+        sqlalchemy.String, nullable=False
+    )  # e.g. "erectus" | "spider"
 
 
 class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
@@ -107,7 +111,10 @@ class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
         cls, session: AsyncSession, objects: List[LinearControllerGenotype]
     ) -> List[int]:
         dbfitnesses = [
-            DbGenotype(serialized_genome=np.array(o.genotype, dtype=float).tostring())
+            DbGenotype(
+                serialized_genome=np.array(o.genotype, dtype=float).tostring(),
+                body_name=o.body_name,
+            )
             for o in objects
         ]
         session.add_all(dbfitnesses)

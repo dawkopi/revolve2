@@ -290,7 +290,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 control=controller_wrapper._control,
             )
 
-            pos, rot = actor_get_standing_pose(actor)
+            pos, rot = genotype.get_initial_pose(actor)
             # pos, rot = actor_get_default_pose(actor)
             env = Environment()
             env.actors.append(

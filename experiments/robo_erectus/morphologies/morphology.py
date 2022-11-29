@@ -9,6 +9,7 @@ import math
 from revolve2.core.modular_robot import ActiveHinge, Body, Core, Brick
 from revolve2.core.physics.running._results import ActorState
 import utilities
+import logging
 
 sys.path.append(os.getcwd())
 from utilities import (
@@ -108,7 +109,7 @@ MORPHOLOGIES = {
         "get_pose": actor_get_standing_pose,
     },
     "spider": {
-        # "min_z": 0.1,  # ???
+        "min_z": 0.1,  # ???
         "get_pose": actor_get_default_pose,
     },
 }
@@ -119,13 +120,20 @@ for key, m in MORPHOLOGIES.items():
         raise FileNotFoundError(fname + " not found")
     m["fname"] = fname
 
-    def is_healthy(state: ActorState):
-        min_z = None
-        if "min_z" in m:
-            min_z = m["min_z"]
-        return utilities.is_healthy_state(state, min_z=min_z)
+    min_z = m["min_z"]
+    # if "min_z" not in m:
+    # logging.warn(f"body '{key}' has no min_z --- (its health checking is disabled)")
 
-    m["is_healthy"] = is_healthy
+    def healthy_factory(
+        min_z,
+    ):  # this extra func prevents annoying memory issue with min_z
+        def is_healthy(state: ActorState):
+            return utilities.is_healthy_state(state, min_z=min_z)
+
+        return is_healthy
+
+    # m["is_healthy"] = lambda state: utilities.is_healthy_state(state, min_z)
+    m["is_healthy"] = healthy_factory(min_z)
 
 if __name__ == "__main__":
     path = os.path.join(SCRIPT_DIR, "spider.yaml")

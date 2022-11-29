@@ -16,7 +16,9 @@ EXP_CMD_BASE = [
     "1",
     "-t",
     "3",
-    # "--save_best",  # don't output best robots
+    # "--save_best",  # ensure rerun_best.py works!
+    # "--best_dur",
+    # "1",
 ]
 
 
@@ -47,6 +49,9 @@ def test_experiment_can_complete():
 
     print(res.stdout)
 
+    # files = glob.glob(os.path.join(DATABASE_PATH, f"{run_name}*/analysis/*.mp4"))
+    # assert len(files) > 1, "mp4 files created"
+
 
 def test_experiment_can_complete__cma_es():
     """Test that optimize.py can complete (a minimal experiment) without crashing."""
@@ -75,3 +80,6 @@ def test_experiment_can_complete__cma_es():
     assert os.path.isfile(os.path.join(exp_dir, "db.sqlite")) == True
 
     print(res.stdout)
+
+    # files = glob.glob(os.path.join(DATABASE_PATH, f"{run_name}*/analysis/*.mp4"))
+    # assert len(files) > 1, "mp4 files created"
