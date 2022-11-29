@@ -87,7 +87,7 @@ def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
 
 
 def is_healthy_state(
-    state: ActorState, min_z: float, max_z: Optional[float] = None
+    state: ActorState, min_z: Optional[float], max_z: Optional[float] = None
 ) -> bool:
     """
     Indicates whether actor is in a healthy state (e.g. hasn't fallen over).
@@ -101,10 +101,8 @@ def is_healthy_state(
         https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/envs/mujoco/humanoid_v4.py
     """
 
-    # TODO: test / adjust this. each morphology should provide this!
-    # healthy_min_z = 1.0
-    # healthy_min_z = 1.0
-    # we can just use a healthy z range like the humanoid does!
+    if min_z is None and max_z is None:
+        return True
 
     healthy = state.position.z >= min_z
     if max_z is not None:

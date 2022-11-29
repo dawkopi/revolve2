@@ -4,8 +4,17 @@ refer to ci-group/revolve/experiments/examples/yaml & revolve/pyrevolve/revolve_
 """
 import os
 import yaml
+import sys
 import math
 from revolve2.core.modular_robot import ActiveHinge, Body, Core, Brick
+from revolve2.core.physics.running._results import ActorState
+import utilities
+
+sys.path.append(os.getcwd())
+from utilities import (
+    actor_get_default_pose,
+    actor_get_standing_pose,
+)
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -90,6 +99,33 @@ class FixedBodyCreator:
     def body(self):
         return self._body
 
+
+# defines all hardcoded morphologies for a genotype's (hyper) params
+# each key corresponds to the yaml file "./{key}.yaml"
+MORPHOLOGIES = {
+    "erectus": {
+        "min_z": 0.4,  # for health check
+        "get_pose": actor_get_standing_pose,
+    },
+    "spider": {
+        # "min_z": 0.1,  # ???
+        "get_pose": actor_get_default_pose,
+    },
+}
+
+for key, m in MORPHOLOGIES.items():
+    fname = os.path.join(SCRIPT_DIR, key + ".yaml")
+    if not os.path.isfile(fname):
+        raise FileNotFoundError(fname + " not found")
+    m["fname"] = fname
+
+    def is_healthy(state: ActorState):
+        min_z = None
+        if "min_z" in m:
+            min_z = m["min_z"]
+        return utilities.is_healthy_state(state, min_z=min_z)
+
+    m["is_healthy"] = is_healthy
 
 if __name__ == "__main__":
     path = os.path.join(SCRIPT_DIR, "spider.yaml")

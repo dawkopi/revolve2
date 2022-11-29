@@ -4,7 +4,7 @@
 import argparse
 import os
 
-from optimizer import actor_get_standing_pose, actor_get_default_pose
+# from optimizer import actor_get_standing_pose, actor_get_default_pose
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.database.serializers import DbFloat
 from revolve2.core.modular_robot import ModularRobot
@@ -13,7 +13,8 @@ from revolve2.runners.mujoco import LocalRunner, ModularRobotRerunner
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.future import select
 
-from optimizer import actor_get_standing_pose
+
+# from optimize import ERECTUS_YAML
 from utilities import *
 
 from genotypes.linear_controller_genotype import (
@@ -22,7 +23,7 @@ from genotypes.linear_controller_genotype import (
 )
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
-ERECTUS_YAML = os.path.join(SCRIPT_DIR, "morphologies/erectus.yaml")
+# ERECTUS_YAML = os.path.join(SCRIPT_DIR, "morphologies/erectus.yaml")
 
 
 async def main() -> None:
@@ -39,12 +40,6 @@ async def main() -> None:
     )
     parser.add_argument("-l", "--load_latest", action="store_true")
     parser.add_argument("-n", "--run_name", type=str, default="default")
-    parser.add_argument(
-        "-s",
-        "--stand",
-        action="store_true",
-        help="set the robot starts from 'standing' upright",
-    )
     parser.add_argument(
         "-c",
         "--count",
@@ -97,7 +92,7 @@ async def main() -> None:
             res = best_individuals[i]
             genotype = (
                 await LinearGenotypeSerializer.from_database(
-                    session, [res[0].genotype_id], ERECTUS_YAML
+                    session, [res[0].genotype_id]
                 )
             )[0]
             ind_id = res[0].individual_id
@@ -107,11 +102,7 @@ async def main() -> None:
 
             rerunner = ModularRobotRerunner()
 
-            if args.stand:
-                pose_getter = actor_get_standing_pose
-            else:
-                pose_getter = actor_get_default_pose
-
+            pose_getter = genotype.get_initial_pose
             actor, controller = genotype.develop()
             env, _ = ModularRobotRerunner.robot_to_env(actor, controller, pose_getter)
 

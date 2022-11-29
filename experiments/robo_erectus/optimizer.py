@@ -74,7 +74,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
     n_jobs: int = 1
 
-    _body_yaml: str
+    _body_name: str
 
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
@@ -92,7 +92,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         num_generations: int,
         offspring_size: int,
         fitness_function: str,
-        body_yaml: str,
+        body_name: str,
         headless: bool = True,
     ) -> None:
         """
@@ -137,7 +137,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         self._control_frequency = control_frequency
         self._num_generations = num_generations
         self._fitness_function = fitness_function
-        self._body_yaml = body_yaml
+        self._body_name = body_name
 
         # create database structure if not exists
         # TODO this works but there is probably a better way
@@ -217,6 +217,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         self._innov_db_brain.Deserialize(opt_row.innov_db_brain)
 
         self._fitness_function = opt_row.fitness_function
+        self._body_name = opt_row.body_name
 
         return True
 
@@ -307,9 +308,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             #    f.write(xml_string)
             # print(f"wrote: /tmp/cur.xml")
 
-            def is_healthy(state: ActorState):
-                return utilities.is_healthy_state(state, 0.4)
-
+            # assumes all genotypes are same body name/type (e.g. "spider")
+            is_healthy = genotypes[0].is_healthy
             return LocalRunner(headless=headless).run_batch_sync(
                 batch, is_healthy=is_healthy
             )
@@ -375,6 +375,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 control_frequency=self._control_frequency,
                 num_generations=self._num_generations,
                 fitness_function=self._fitness_function,
+                body_name=self._body_name,
             )
         )
 
@@ -403,3 +404,7 @@ class DbOptimizerState(DbBase):
     control_frequency = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     num_generations = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     fitness_function = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+
+    body_name = sqlalchemy.Column(
+        sqlalchemy.String, nullable=False
+    )  # e.g. "erectus" | "spider"

@@ -10,16 +10,17 @@ from sqlalchemy.future import select
 from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
 from controllers.linear_controller import LinearController
 from revolve2.core.database import IncompatibleError, Serializer
-from morphologies.morphology import FixedBodyCreator
+from morphologies.morphology import FixedBodyCreator, MORPHOLOGIES
 
 
 class LinearControllerGenotype:
-    def __init__(self, genotype, yaml_file: str):
+    def __init__(self, genotype, body_name: str):
         self.genotype = genotype
-        self.yaml_file = yaml_file  # for morphology
+        self.body_name = body_name  # for morphology
+        self.is_healthy = MORPHOLOGIES[body_name]["is_healthy"]
 
     def develop(self):
-        actor, dof_ids = LinearControllerGenotype.develop_body(self.yaml_file)
+        actor, dof_ids = LinearControllerGenotype.develop_body(self.body_name)
 
         dof_size = len(dof_ids)
         input_size = LinearController.get_input_size(dof_size)
@@ -28,21 +29,27 @@ class LinearControllerGenotype:
 
         return actor, controller
 
+    def get_initial_pose(self):
+        return MORPHOLOGIES[self.body_name]["get_pose"]
+
     @classmethod
-    def random(cls, yaml_file: Optional[str]):
-        _, dof_ids = LinearControllerGenotype.develop_body(yaml_file)
+    def random(cls, body_name: str):
+        _, dof_ids = LinearControllerGenotype.develop_body(body_name)
         dof_size = len(dof_ids)
         input_size = LinearController.get_input_size(dof_size)
         genotype = np.random.normal(scale=0.1, size=(input_size, dof_size)).flatten()
-        return LinearControllerGenotype(genotype, yaml_file)
+        return LinearControllerGenotype(genotype, body_name)
 
     @staticmethod
-    def develop_body(yaml_file: Optional[str]):
-        if yaml_file is not None:
-            assert os.path.exists(yaml_file)
-            body = FixedBodyCreator(yaml_file).body
-            actor, dof_ids = body.to_actor()
-            return actor, dof_ids
+    def develop_body(body_name: str):
+        if body_name not in MORPHOLOGIES:
+            raise KeyError(f"body_name '{body_name}' not found in MORPHOLOGIES")
+
+        body_info = MORPHOLOGIES[body_name]
+        assert os.path.exists(body_info["fname"])
+        body = FixedBodyCreator(body_info["fname"]).body
+        actor, dof_ids = body.to_actor()
+        return actor, dof_ids
 
         # fallback:
         # Hardcoded body; for now
@@ -111,7 +118,7 @@ class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
 
     @classmethod
     async def from_database(
-        cls, session: AsyncSession, ids: List[int], body_yaml: str
+        cls, session: AsyncSession, ids: List[int]
     ) -> List[LinearControllerGenotype]:
         rows = (
             (await session.execute(select(DbGenotype).filter(DbGenotype.id.in_(ids))))
@@ -125,7 +132,8 @@ class LinearGenotypeSerializer(Serializer[LinearControllerGenotype]):
         id_map = {t.id: t for t in rows}
         genotypes = [
             LinearControllerGenotype(
-                np.fromstring(id_map[id].serialized_genome, dtype=float), body_yaml
+                np.fromstring(id_map[id].serialized_genome, dtype=float),
+                id_map[id].body_name,
             )
             for id in ids
         ]

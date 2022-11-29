@@ -315,7 +315,7 @@ class EsOptimizer(Process, Generic[Genotype, Fitness]):
         init_x = None
         for individual in self._latest_population:
             genotype = individual.genotype.genotype
-            body_yaml = individual.genotype.yaml_file
+            body_name = individual.genotype.body_name
             init_x = genotype
 
         self._es = cma.CMAEvolutionStrategy(
@@ -341,7 +341,7 @@ class EsOptimizer(Process, Generic[Genotype, Fitness]):
             solutions = self._es.ask()
 
             offspring = [
-                self.__genotype_type(solution, body_yaml) for solution in solutions
+                self.__genotype_type(solution, body_name) for solution in solutions
             ]
 
             # let user evaluate offspring
@@ -357,7 +357,7 @@ class EsOptimizer(Process, Generic[Genotype, Fitness]):
             survived_new_individuals = [
                 _Individual(
                     -1,  # placeholder until later
-                    self.__genotype_type(solution, body_yaml),
+                    self.__genotype_type(solution, body_name),
                     [i for i in range(len(solutions))],
                 )
                 for index, solution in enumerate(solutions)

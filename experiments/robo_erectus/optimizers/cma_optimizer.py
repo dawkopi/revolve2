@@ -97,7 +97,7 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
         num_generations: int,
         offspring_size: int,
         fitness_function: str,
-        body_yaml: str,
+        body_name: str,
         headless: bool = True,
     ) -> None:
         """
@@ -140,7 +140,7 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
         self._control_frequency = control_frequency
         self._num_generations = num_generations
         self._fitness_function = fitness_function
-        self._body_yaml = body_yaml
+        self._body_name = body_name
 
         # create database structure if not exists
         # TODO this works but there is probably a better way
@@ -215,6 +215,7 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
         self._rng.setstate(pickle.loads(opt_row.rng))
 
         self._fitness_function = opt_row.fitness_function
+        self._body_name = opt_row.body_name
 
         return True
 
@@ -253,8 +254,7 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
             )
             batch.environments.append(env)
 
-            def is_healthy(state: ActorState):
-                return utilities.is_healthy_state(state, 0.4)
+            is_healthy = genotypes[0].is_healthy
 
             return LocalRunner(headless=headless).run_batch_sync(
                 batch, is_healthy=is_healthy
@@ -319,6 +319,7 @@ class CmaEsOptimizer(EsOptimizer[LinearControllerGenotype, float]):
                 control_frequency=self._control_frequency,
                 num_generations=self._num_generations,
                 fitness_function=self._fitness_function,
+                body_name=self._body_name,
             )
         )
 
@@ -347,3 +348,7 @@ class DbOptimizerState(DbBase):
     control_frequency = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     num_generations = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     fitness_function = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+
+    body_name = sqlalchemy.Column(
+        sqlalchemy.String, nullable=False
+    )  # e.g. "erectus" | "spider"

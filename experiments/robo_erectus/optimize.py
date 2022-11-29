@@ -16,6 +16,7 @@ import wandb
 from optimizer import Optimizer as EaOptimzer
 from optimizers.cma_optimizer import CmaEsOptimizer
 from utilities import *
+from morphologies.morphology import MORPHOLOGIES
 from genotypes.linear_controller_genotype import LinearControllerGenotype
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -44,8 +45,8 @@ async def main() -> None:
         "-m",
         "--morphology",
         type=str,
-        default=ERECTUS_YAML,
-        help="yaml file to use for robot's morphology",
+        default="erectus",
+        help="name of morphology to use (e.g. 'erecuts' | 'spider')",
     )
     parser.add_argument(
         "-f",
@@ -72,8 +73,8 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
-    body_yaml = args.morphology
-    assert os.path.exists(body_yaml)
+    body_name = args.morphology
+    assert body_name in MORPHOLOGIES, "morphology must exist"
     ensure_dirs(DATABASE_PATH)
 
     # https://docs.wandb.ai/guides/track/advanced/resuming#resuming-guidance
@@ -116,16 +117,9 @@ async def main() -> None:
     rng = Random()
     rng.seed(args.rng_seed)
 
-    # database
-    database = open_async_database_sqlite(database_dir)
-
     # process id generator
     process_id_gen = ProcessIdGen()
     process_id = process_id_gen.gen()
-
-    # multineat innovation databases
-    innov_db_body = multineat.InnovationDatabase()
-    innov_db_brain = multineat.InnovationDatabase()
 
     if args.use_cma:
         Optimizer = CmaEsOptimizer
@@ -134,8 +128,9 @@ async def main() -> None:
         )
         args.population_size = 1
 
+    logging.info(f"using body_name: {body_name}")
     initial_population = [
-        LinearControllerGenotype.random(body_yaml) for _ in range(args.population_size)
+        LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
     ]
 
     if args.use_cma:
@@ -152,6 +147,12 @@ async def main() -> None:
     if args.offspring_size is None:
         args.offspring_size = args.population_size
 
+    # multineat innovation databases
+    innov_db_body = multineat.InnovationDatabase()
+    innov_db_brain = multineat.InnovationDatabase()
+
+    # database
+    database = open_async_database_sqlite(database_dir)
     maybe_optimizer = await Optimizer.from_database(
         database=database,
         process_id=process_id,
@@ -182,13 +183,12 @@ async def main() -> None:
             offspring_size=args.offspring_size,
             fitness_function=args.fitness_function,
             headless=not args.gui,
-            body_yaml=body_yaml,
+            body_name=body_name,
         )
 
     logging.info("Starting optimization process...")
 
     optimizer.n_jobs = args.n_jobs
-    optimizer.body_yaml = body_yaml
     await optimizer.run()
 
     logging.info("Finished optimizing.")
