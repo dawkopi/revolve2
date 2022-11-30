@@ -293,23 +293,38 @@ class LocalRunner(Runner):
             robot = mjcf.from_file(botfile)
             botfile.close()
 
-            force_range = 0.948
+            force_range = 0.9
             for joint in posed_actor.actor.joints:
+                # robot.actuator.add(
+                #     "intvelocity",
+                #     actrange="-1.57 1.57",
+                #     kp=5.0,
+                #     forcerange=f"{-force_range} {force_range}",
+                #     joint=robot.find(namespace="joint", identifier=joint.name),
+                # )
+                robot.find(namespace="joint", identifier=joint.name).armature = "0.01"
+                robot.find(namespace="joint", identifier=joint.name).damping = "0.01"
                 robot.actuator.add(
                     "position",
-                    kp=5.0,
+                    kp=1.0,
+                    # kp=5.0,
+                    # kp=0.2,
+                    ctrlrange="-1.0 1.0",
                     forcerange=f"{-force_range} {force_range}",
                     joint=robot.find(
                         namespace="joint",
                         identifier=joint.name,
                     ),
                 )
-                robot.actuator.add(
-                    "velocity",
-                    kv=0.2,
-                    forcerange=f"{-force_range} {force_range}",
-                    joint=robot.find(namespace="joint", identifier=joint.name),
-                )
+                # robot.actuator.add(
+                #     "velocity",
+                #     kv=0.001,
+                #     # kv=0.4,
+                #     # kv=0.05,
+                #     ctrlrange="-1.0 1.0",
+                #     forcerange=f"{-force_range} {force_range}",
+                #     joint=robot.find(namespace="joint", identifier=joint.name),
+                # )
 
             attachment_frame = env_mjcf.attach(robot)
             attachment_frame.add("freejoint")
@@ -411,8 +426,14 @@ class LocalRunner(Runner):
 
     @staticmethod
     def _set_dof_targets(data: mujoco.MjData, targets: List[float]) -> None:
-        if len(targets) * 2 != len(data.ctrl):
-            raise RuntimeError("Need to set a target for every dof")
-        for i, target in enumerate(targets):
-            data.ctrl[2 * i] = target
-            data.ctrl[2 * i + 1] = 0
+        if len(targets) == len(data.ctrl):
+            for i, target in enumerate(targets):
+                data.ctrl[i] = target
+        elif len(targets) * 2 != len(data.ctrl):
+            raise RuntimeError(
+                "Number of target dofs doesn't match the number of actuators"
+            )
+        else:
+            for i, target in enumerate(targets):
+                data.ctrl[2 * i] = target
+                data.ctrl[2 * i + 1] = 0

@@ -52,6 +52,13 @@ def set_latest_run(full_run_name: str):
         file.write(full_run_name)
 
 
+def get_random_rotation(scale=0.01) -> Quaternion:
+    rot = Quaternion.from_x_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)
+    rot = rot * Quaternion.from_y_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)
+    rot = rot * Quaternion.from_z_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)
+    return rot
+
+
 # TODO: add param for tweaking the initial pose (making it stochastic)
 def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
     """
@@ -65,10 +72,13 @@ def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
             0.0,
             0.0,
             # due to rotating about the y axis, the box's x size becomes the new effective "z" height of the box
-            bounding_box.size.x / 2.0 - bounding_box.offset.x,
+            bounding_box.size.x / 2.0 - bounding_box.offset.x + 0.1,
         ]
     )
+
     rot = Quaternion.from_y_rotation(np.pi / 2)
+    rot = rot * get_random_rotation()
+
     return (pos, rot)
 
 
@@ -79,10 +89,13 @@ def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
         [
             0.0,
             0.0,
-            bounding_box.size.z / 2.0 - bounding_box.offset.z,
+            bounding_box.size.z / 2.0 - bounding_box.offset.z + 0.1,
         ]
     )
+
     rot = Quaternion()
+    rot = rot * get_random_rotation()
+
     return (pos, rot)
 
 

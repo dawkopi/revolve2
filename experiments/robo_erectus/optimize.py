@@ -35,7 +35,7 @@ async def main() -> None:
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
-    parser.add_argument("--offspring_size", type=int, default=None)
+    parser.add_argument("-o", "--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
