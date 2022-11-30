@@ -172,6 +172,9 @@ async def main() -> None:
         logging.info(f"Initialized with existing database: '{database_dir}'")
         # TODO: if run is already finished, don't log it to wandb
         optimizer = maybe_optimizer
+        optimizer._num_generations = (
+            args.num_generations
+        )  # in case more generations are desired :)
     else:
         logging.info(f"Initialized a new experiment: '{database_dir}'")
         optimizer = await Optimizer.new(

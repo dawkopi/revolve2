@@ -52,13 +52,20 @@ async def main() -> None:
         action="store_true",
         help="whether to write video of sim to file (runs headless)",
     )
+    parser.add_argument(
+        "--dir",
+        type=str,
+        default=DATABASE_PATH,
+        help="path to database directory",
+    )
     args = parser.parse_args()
-    ensure_dirs(DATABASE_PATH)
+
+    ensure_dirs(args.dir)
 
     if args.load_latest:
         full_run_name = get_latest_run()
     else:
-        full_run_name = find_dir(DATABASE_PATH, args.run_name)
+        full_run_name = find_dir(args.dir, args.run_name)
 
     if full_run_name is None:
         print("Run not found...")
@@ -70,7 +77,7 @@ async def main() -> None:
             "WARNING: consider using a shorter simulation time (-t) when visualizing multiple robots\n"
         )
 
-    database_dir = os.path.join(DATABASE_PATH, full_run_name)
+    database_dir = os.path.join(args.dir, full_run_name)
     analysis_dir = os.path.join(database_dir, ANALYSIS_DIR_NAME)
     ensure_dirs(analysis_dir)
 
