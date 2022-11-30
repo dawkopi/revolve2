@@ -303,11 +303,6 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             )
             batch.environments.append(env)
 
-            # xml_string = LocalRunner._make_mjcf(env)
-            # with open("/tmp/cur.xml", "w") as f:
-            #    f.write(xml_string)
-            # print(f"wrote: /tmp/cur.xml")
-
             # assumes all genotypes are same body name/type (e.g. "spider")
             is_healthy = genotypes[0].is_healthy
             return LocalRunner(headless=headless).run_batch_sync(

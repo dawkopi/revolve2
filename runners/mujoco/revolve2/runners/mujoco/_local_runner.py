@@ -143,6 +143,17 @@ class LocalRunner(Runner):
                         ground_contacts=False,
                     )[0]
 
+                    logging.debug(f"actor height = {actor_state.position.z:0.3f}")
+                    # TODO: the exact time at which we terminate isn't tracked exactly
+                    #   (whatever last sample time was is taken to be the duration)
+                    if is_healthy is not None:
+                        if not is_healthy(actor_state):
+                            # end the simulation
+                            logging.info(
+                                f"stopping sim at time {time:0.3f} due to unhealthy actor!"
+                            )
+                            break
+
                     batch.control(
                         env_index,
                         actor_state,
@@ -186,16 +197,6 @@ class LocalRunner(Runner):
                     )
                     actions = []
                     action_diffs = []
-
-                    # TODO: should we do this more frequently than sample_step?
-                    if is_healthy is not None:
-                        actor_state = env_state.actor_states[0]
-                        if not is_healthy(actor_state):
-                            # end the simulation
-                            logging.debug(
-                                f"stopping sim at time {time:0.3f} due to unhealthy actor!"
-                            )
-                            break
 
                 # step simulation
                 mujoco.mj_step(model, data)

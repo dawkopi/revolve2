@@ -1,17 +1,27 @@
+#!/usr/bin/env python3
 """
 Fixed morphology creator
 refer to ci-group/revolve/experiments/examples/yaml & revolve/pyrevolve/revolve_bot/revolve_bot.py 
 """
+import argparse
 import os
 import yaml
 import sys
+
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+
+sys.path.append(os.path.dirname(SCRIPT_DIR))
 import math
 from revolve2.core.modular_robot import ActiveHinge, Body, Core, Brick
 from revolve2.core.physics.running._results import ActorState
-import utilities
+from revolve2.core.physics.running import (
+    Environment,
+    PosedActor,
+)
 import logging
+from revolve2.runners.mujoco import LocalRunner
 
-sys.path.append(os.getcwd())
+import utilities
 from utilities import (
     actor_get_default_pose,
     actor_get_standing_pose,
@@ -105,11 +115,19 @@ class FixedBodyCreator:
 # each key corresponds to the yaml file "./{key}.yaml"
 MORPHOLOGIES = {
     "erectus": {
-        "min_z": 0.4,  # for health check
+        "min_z": 0.1,  # for health check
         "get_pose": actor_get_standing_pose,
     },
+    "dangle": {
+        "min_z": 0.13,  # for health check
+        "get_pose": actor_get_standing_pose,
+    },
+    "trirectus": {
+        "min_z": 0.1,  # for health check
+        "get_pose": actor_get_default_pose,
+    },
     "spider": {
-        "min_z": 0.1,  # ???
+        "min_z": 0.1,
         "get_pose": actor_get_default_pose,
     },
 }
@@ -135,7 +153,41 @@ for key, m in MORPHOLOGIES.items():
     # m["is_healthy"] = lambda state: utilities.is_healthy_state(state, min_z)
     m["is_healthy"] = healthy_factory(min_z)
 
+
 if __name__ == "__main__":
-    path = os.path.join(SCRIPT_DIR, "spider.yaml")
-    erectus = FixedBodyCreator(path)
-    body = erectus.body
+    parser = argparse.ArgumentParser(
+        description="output a given morphology to xml (to visualize with mujoc 'simulate' program)"
+    )
+    parser.add_argument(
+        "-m",
+        "--morphology",
+        type=str,
+        default="erectus",
+        help="name of morphology to use (e.g. 'erecuts' | 'spider')",
+    )
+    args = parser.parse_args()
+
+    body_name = args.morphology
+    assert body_name in MORPHOLOGIES, "morphology must exist"
+
+    from genotypes.linear_controller_genotype import LinearControllerGenotype
+
+    genotype = LinearControllerGenotype.random(body_name)
+    actor, controller = genotype.develop()
+
+    pos, rot = genotype.get_initial_pose(actor)
+    env = Environment()
+    env.actors.append(
+        PosedActor(
+            actor,
+            pos,
+            rot,
+            [0.0 for _ in controller.get_dof_targets()],
+        ),
+    )
+
+    outpath = os.path.join(SCRIPT_DIR, f"{body_name}.xml")
+    xml_string = LocalRunner._make_mjcf(env)
+    with open(outpath, "w") as f:
+        f.write(xml_string)
+    print(f"wrote '{body_name}' body to: '{outpath}'")
