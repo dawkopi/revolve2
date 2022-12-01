@@ -55,9 +55,12 @@ def health_with_control_cost(environment_results: EnvironmentResults) -> float:
     control_cost = control_cost_weight * measures.control_cost(environment_results)
 
     total_steps = len(environment_results.environment_states)
-    HEALTHY_STEP_REWARD = 0.05
+    HEALTHY_STEP_REWARD = 0.5
+    healthy_reward = 0.0
+    # make healthy reward diminish asymptotically to 0 with time
+    for t in range(total_steps):
+        healthy_reward += HEALTHY_STEP_REWARD * 1 / (max(1, t) ** 1.1)
     # (experiment should have stopped when an unhealthy step was reached)
-    healthy_reward = total_steps * HEALTHY_STEP_REWARD
 
     logging.debug(f"fitness: {base_fitness}, {control_cost}")
     return base_fitness - control_cost + healthy_reward
