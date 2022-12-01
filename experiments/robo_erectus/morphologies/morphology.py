@@ -126,6 +126,10 @@ MORPHOLOGIES = {
         "min_z": 0.1,  # for health check
         "get_pose": actor_get_default_pose,
     },
+    "birectus_simple": {
+        "min_z": 0.1,  # for health check
+        "get_pose": actor_get_default_pose,
+    },
     "spider": {
         "min_z": 0.1,
         "get_pose": actor_get_default_pose,
