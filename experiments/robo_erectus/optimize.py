@@ -52,7 +52,8 @@ async def main() -> None:
         "-f",
         "--fitness_function",
         # default="with_control_cost",
-        default="health_with_control_cost",
+        # default="health_with_control_cost",
+        default="clipped_health",
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",

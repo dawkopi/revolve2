@@ -366,7 +366,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
     def init_cma(self, offspring_size=None):
         return
 
-    async def evovle_step(
+    async def evolve_step(
         self,
         body_name=None,
         database=None,
@@ -465,7 +465,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
         while self.__safe_must_do_next_gen():
 
             # if optimizer is not EA optimzier, all parameters will be used by overided method
-            survived_new_individuals, survived_new_fitnesses = await self.evovle_step(
+            survived_new_individuals, survived_new_fitnesses = await self.evolve_step(
                 body_name=body_name,
                 database=self.__database,
                 process_id_gen=self.__process_id_gen,
