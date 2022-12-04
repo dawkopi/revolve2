@@ -77,7 +77,7 @@ class ArsOptimizer(Optimizer):
 
         return body_name
 
-    async def evovle_step(
+    async def evolve_step(
         self,
         body_name,
         database,
