@@ -52,7 +52,7 @@ def set_latest_run(full_run_name: str):
         file.write(full_run_name)
 
 
-def get_random_rotation(scale=0.01) -> Quaternion:
+def get_random_rotation(scale=0.02) -> Quaternion:
     rot = Quaternion.from_x_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)
     rot = rot * Quaternion.from_y_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)
     rot = rot * Quaternion.from_z_rotation(np.random.uniform(-1.0, 1.0) * np.pi * scale)

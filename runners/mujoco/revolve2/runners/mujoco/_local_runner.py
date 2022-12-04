@@ -304,7 +304,7 @@ class LocalRunner(Runner):
                 #     joint=robot.find(namespace="joint", identifier=joint.name),
                 # )
                 robot.find(namespace="joint", identifier=joint.name).armature = "0.01"
-                robot.find(namespace="joint", identifier=joint.name).damping = "0.01"
+                # robot.find(namespace="joint", identifier=joint.name).damping = "0.01"
                 robot.actuator.add(
                     "position",
                     kp=1.0,
