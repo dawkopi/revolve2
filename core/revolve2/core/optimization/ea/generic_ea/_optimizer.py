@@ -363,7 +363,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
 
         return True
 
-    def init_cma(self, offspring_size=None):
+    def init_optimizer(self, param=None):
         return
 
     async def evovle_step(
@@ -443,8 +443,14 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
 
     async def run(self) -> None:
         """Run the optimizer."""
-        # if optimzer is cma optimizer, body_name will be used by overided method
-        body_name = self.init_cma(offspring_size=self.__offspring_size)
+        # if optimzer is not EA optimizer, body_name will be used by overided method
+        body_name = self.init_optimizer(
+            param=(
+                self.__offspring_size,
+                self.__genotype_type,
+                self.__safe_evaluate_generation,
+            )
+        )
         # evaluate initial population if required
         if self._latest_fitnesses is None:
             (
