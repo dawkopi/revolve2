@@ -73,6 +73,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
     _headless: bool = True  # whether to hide sim GUI
 
     n_jobs: int = 1
+    samples: int = 1
 
     _body_name: str
 
@@ -312,22 +313,38 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         logging.info(
             f"Starting simulation batch with mujoco - {len(genotypes)} evaluations."
         )
-        if self.n_jobs > 1:
-            batch_results = Parallel(n_jobs=self.n_jobs)(
-                delayed(_evaluate)(genotype, True) for genotype in genotypes
-            )
-        else:
-            batch_results = [
-                _evaluate(genotype, self._headless) for genotype in genotypes
-            ]
+        batch_result_samples = []
+        for i in range(self.samples):
+            logging.info(f"Evaluating sample {i}.")
+            if self.n_jobs > 1:
+                batch_result_samples.append(
+                    Parallel(n_jobs=self.n_jobs)(
+                        delayed(_evaluate)(genotype, True) for genotype in genotypes
+                    )
+                )
+            else:
+                batch_result_samples.append(
+                    [_evaluate(genotype, self._headless) for genotype in genotypes]
+                )
         logging.info("Finished batch.")
-
-        environment_results = [br.environment_results[0] for br in batch_results]
-
         logging.info(self._fitness_function)
+
+        environment_results = []
+        fitness_samples = []
+        for batch_results_sample in batch_result_samples:
+            environment_results_sample = [
+                br.environment_results[0] for br in batch_results_sample
+            ]
+            environment_results += environment_results_sample
+
+            fitness_sample = [
+                fitness_functions[self._fitness_function](environment_result)
+                for environment_result in environment_results_sample
+            ]
+            fitness_samples.append(fitness_sample)
+
         fitness = [
-            fitness_functions[self._fitness_function](environment_result)
-            for environment_result in environment_results
+            sum(samples) / len(fitness_samples) for samples in zip(*fitness_samples)
         ]
 
         return fitness, environment_results

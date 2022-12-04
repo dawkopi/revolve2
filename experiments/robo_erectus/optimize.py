@@ -31,7 +31,7 @@ async def main() -> None:
     parser.add_argument("-r", "--resume", action="store_true")
     parser.add_argument("--rng_seed", type=int, default=420)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
-    parser.add_argument("-t", "--simulation_time", type=int, default=30)
+    parser.add_argument("-t", "--simulation_time", type=int, default=120)
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
@@ -41,6 +41,7 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
+    parser.add_argument("-s", "--samples", type=int, default=1)
     parser.add_argument(
         "-m",
         "--morphology",
@@ -199,6 +200,7 @@ async def main() -> None:
     logging.info("Starting optimization process...")
 
     optimizer.n_jobs = args.n_jobs
+    optimizer.samples = args.samples
     await optimizer.run()
 
     logging.info("Finished optimizing.")
