@@ -88,7 +88,7 @@ class ArsOptimizer(Optimizer):
         gen_next_individual_id,
     ):
         parent = genotype_type(deepcopy(self._ars.w_policy), body_name)
-        inputs = ([parent], database, process_id_gen.gen(), process_id_gen)
+        inputs = (parent, database, process_id_gen.gen(), process_id_gen)
 
         # let user create offspring
         await self._ars.train_step(inputs)

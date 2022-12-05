@@ -4,11 +4,10 @@ Horia Mania --- hmania@berkeley.edu
 Aurelia Guy
 Benjamin Recht 
 """
-
-import parser
-import time
 import os
 import sys
+import time
+from copy import deepcopy
 
 sys.path.append(
     os.path.join(os.getcwd(), "experiments", "robo_erectus", "optimizers", "ars")
@@ -19,7 +18,6 @@ import logz
 import utils
 import ars_optimizers
 from policies import *
-import socket
 from shared_noise import *
 
 
@@ -67,16 +65,15 @@ class Worker(object):
         if rollout_length is None:
             rollout_length = self.rollout_length
 
-        total_reward = 0.0
-        steps = 0
-
-        parent, database, process_id_gen_gen, process_id_gen = inputs
+        genotypes, database, process_id_gen_gen, process_id_gen = inputs
         fitness, environment_results = await self.reward_func(
-            parent, database, process_id_gen_gen, process_id_gen
+            genotypes, database, process_id_gen_gen, process_id_gen
         )
-        total_reward = fitness[0]
-        steps = len(environment_results[0].environment_states)
-        return total_reward, steps
+        total_rewards = fitness
+        steps_list = [
+            len(env_results.environment_states) for env_results in environment_results
+        ]
+        return total_rewards, steps_list
 
     async def do_rollouts(
         self, inputs, w_policy, num_rollouts=1, shift=1, evaluate=False
@@ -88,22 +85,26 @@ class Worker(object):
         rollout_rewards, deltas_idx = [], []
         steps = 0
 
-        for i in range(num_rollouts):
-
-            if evaluate:
+        inputs = list(inputs)
+        parent = inputs[0]
+        inputs[0] = [deepcopy(parent) for i in range(num_rollouts * 2)]
+        if evaluate:
+            for i in range(num_rollouts):
+                inputs[0] = inputs[0][:num_rollouts]
                 self.policy.update_weights(w_policy)
+                inputs[0][i].genotype = deepcopy(self.policy.get_weights())
                 deltas_idx.append(-1)
 
                 # set to false so that evaluation rollouts are not used for updating state statistics
                 self.policy.update_filter = False
 
-                # for evaluation we do not shift the rewards (shift = 0) and we use the
-                # default rollout length (1000 for the MuJoCo locomotion tasks)
-                reward, r_steps = self.rollout(inputs, shift=0.0, rollout_length=50)
-                # reward, r_steps = self.rollout(shift = 0., rollout_length = self.env.spec.timestep_limit) # TODO get mujoco simulation steps
-                rollout_rewards.append(reward)
+            # for evaluation we do not shift the rewards (shift = 0) and we use the
+            # default rollout length (1000 for the MuJoCo locomotion tasks)
+            rewards, steps_list = self.rollout(inputs, shift=0.0, rollout_length=50)
+            rollout_rewards = rewards
 
-            else:
+        else:
+            for i in range(num_rollouts):
                 idx, delta = self.deltas.get_delta(w_policy.size)
 
                 delta = (self.delta_std * delta).reshape(w_policy.shape)
@@ -114,15 +115,20 @@ class Worker(object):
 
                 # compute reward and number of timesteps used for positive perturbation rollout
                 self.policy.update_weights(w_policy + delta)
-                inputs[0][0].genotype = self.policy.get_weights()
-                pos_reward, pos_steps = await self.rollout(inputs, shift=shift)
+                inputs[0][i].genotype = deepcopy(self.policy.get_weights())
 
                 # compute reward and number of timesteps used for negative pertubation rollout
                 self.policy.update_weights(w_policy - delta)
-                inputs[0][0].genotype = self.policy.get_weights()
-                neg_reward, neg_steps = await self.rollout(inputs, shift=shift)
-                steps += pos_steps + neg_steps
+                inputs[0][i + num_rollouts].genotype = deepcopy(
+                    self.policy.get_weights()
+                )
 
+            rewards, steps_list = await self.rollout(inputs, shift=shift)
+
+            for k in range(num_rollouts):
+                pos_reward, neg_reward = rewards[k], rewards[k + num_rollouts]
+                pos_steps, neg_steps = steps_list[k], steps_list[k + num_rollouts]
+                steps += pos_steps + neg_steps
                 rollout_rewards.append([pos_reward, neg_reward])
 
         return {
