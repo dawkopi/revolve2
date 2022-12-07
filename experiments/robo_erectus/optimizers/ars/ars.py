@@ -9,9 +9,8 @@ import sys
 import time
 from copy import deepcopy
 
-sys.path.append(
-    os.path.join(os.getcwd(), "experiments", "robo_erectus", "optimizers", "ars")
-)
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(os.path.join(SCRIPT_DIR))
 
 import numpy as np
 import logz
