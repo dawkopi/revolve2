@@ -124,7 +124,7 @@ async def main() -> None:
                 f.write(xml_string)
             print(f"wrote file: '{xml_path}'")
             video_path = (
-                os.path.join(analysis_dir, f"{fname_base}.mp4") if args.video else ""
+                os.path.join(analysis_dir, f"{fname_base}.webm") if args.video else ""
             )
 
             # run simulation
