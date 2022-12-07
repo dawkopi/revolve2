@@ -18,9 +18,9 @@ class ArsOptimizer(Optimizer):
         evaluate_func = param[2]
         logging.info(f"Initalizing ARS...")
 
-        params = {
-            "n_directions": 8,  # evolve direction
-            "deltas_used": 8,
+        params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resamples
+            "n_directions": 64,  # evolve direction
+            "deltas_used": 64,
             "step_size": 0.02,  # evolve step size
             "delta_std": 0.03,
             "n_workers": 1,  # number of cpus

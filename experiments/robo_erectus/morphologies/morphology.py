@@ -115,7 +115,7 @@ class FixedBodyCreator:
 # each key corresponds to the yaml file "./{key}.yaml"
 MORPHOLOGIES = {
     "erectus": {
-        "min_z": 0.1,  # for health check
+        "min_z": 0.4,  # for health check
         "get_pose": actor_get_standing_pose,
     },
     "dangle": {

@@ -14,11 +14,12 @@ sys.path.append(
 )
 
 import numpy as np
-import logz
-import utils
-import ars_optimizers
-from policies import *
-from shared_noise import *
+
+# import logz
+import optimizers.ars.utils as utils
+import optimizers.ars.ars_optimizers as ars_optimizers
+from optimizers.ars.policies import *
+from optimizers.ars.shared_noise import *
 
 
 class Worker(object):
@@ -70,10 +71,19 @@ class Worker(object):
             genotypes, database, process_id_gen_gen, process_id_gen
         )
         total_rewards = fitness
+        n_points = len(genotypes)
         steps_list = [
             len(env_results.environment_states) for env_results in environment_results
         ]
-        return total_rewards, steps_list
+        n_resamples = len(steps_list) // n_points
+        averaged_steps = []
+        for i in range(n_points):
+            steps_sum = 0
+            for j in range(n_resamples):
+                steps_sum += steps_list[i + j * n_points]
+            averaged_steps.append(steps_sum / n_resamples)
+
+        return total_rewards, averaged_steps
 
     async def do_rollouts(
         self, inputs, w_policy, num_rollouts=1, shift=1, evaluate=False
@@ -174,8 +184,8 @@ class ARSLearner(object):
         seed=123,
     ):
 
-        logz.configure_output_dir(logdir)
-        logz.save_params(params)
+        # logz.configure_output_dir(logdir)
+        # logz.save_params(params)
 
         self.timesteps = 0
         self.num_deltas = num_deltas

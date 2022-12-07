@@ -32,7 +32,7 @@ async def main() -> None:
     parser.add_argument("-r", "--resume", action="store_true")
     parser.add_argument("--rng_seed", type=int, default=420)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
-    parser.add_argument("-t", "--simulation_time", type=int, default=120)
+    parser.add_argument("-t", "--simulation_time", type=int, default=10)
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
@@ -55,7 +55,8 @@ async def main() -> None:
         "--fitness_function",
         # default="with_control_cost",
         # default="health_with_control_cost",
-        default="clipped_health",
+        # default="clipped_health",
+        default="displacement_only",
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",
