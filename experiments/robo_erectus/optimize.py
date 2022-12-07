@@ -15,6 +15,7 @@ import wandb
 
 from optimizer import Optimizer as EaOptimzer
 from optimizers.cma_optimizer import CmaEsOptimizer
+from optimizers.ars_optimizer import ArsOptimizer
 from utilities import *
 from morphologies.morphology import MORPHOLOGIES
 from genotypes.linear_controller_genotype import LinearControllerGenotype
@@ -31,7 +32,7 @@ async def main() -> None:
     parser.add_argument("-r", "--resume", action="store_true")
     parser.add_argument("--rng_seed", type=int, default=420)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
-    parser.add_argument("-t", "--simulation_time", type=int, default=30)
+    parser.add_argument("-t", "--simulation_time", type=int, default=120)
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
@@ -41,6 +42,7 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
+    parser.add_argument("-s", "--samples", type=int, default=1)
     parser.add_argument(
         "-m",
         "--morphology",
@@ -52,7 +54,8 @@ async def main() -> None:
         "-f",
         "--fitness_function",
         # default="with_control_cost",
-        default="health_with_control_cost",
+        # default="health_with_control_cost",
+        default="clipped_health",
     )  # "displacement_height_groundcontact"
     parser.add_argument(
         "-b",
@@ -76,6 +79,12 @@ async def main() -> None:
         "--use_cma",
         action="store_true",
         help="use CMA-ES as optimizer of controller",
+    )
+    parser.add_argument(
+        "-ars",
+        "--use_ars",
+        action="store_true",
+        help="use ARS as optimizer of controller",
     )
     args = parser.parse_args()
 
@@ -134,6 +143,16 @@ async def main() -> None:
         )
         args.population_size = 1
 
+    elif args.use_ars:
+        Optimizer = ArsOptimizer
+        logging.info(
+            "Ars start from an original individual, population size will be stay at 1"
+        )
+        args.population_size = 1
+        args.offspring_size = 1
+    else:
+        Optimizer = EaOptimzer
+
     logging.info(f"using body_name: {body_name}")
     initial_population = [
         LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
@@ -146,8 +165,6 @@ async def main() -> None:
             N = initial_population[0].genotype.shape[0]
             # self-adapted new generation size used in cma-es
             args.offspring_size = int(4 + 3 * np.log(N))
-    else:
-        Optimizer = EaOptimzer
 
     # this if statement must be used after 'if args.use_cma:'
     if args.offspring_size is None:
@@ -198,6 +215,7 @@ async def main() -> None:
     logging.info("Starting optimization process...")
 
     optimizer.n_jobs = args.n_jobs
+    optimizer.samples = args.samples
     await optimizer.run()
 
     logging.info("Finished optimizing.")

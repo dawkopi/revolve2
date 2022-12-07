@@ -363,8 +363,94 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
 
         return True
 
+    def init_optimizer(self, param=None):
+        return
+
+    async def evolve_step(
+        self,
+        body_name=None,
+        database=None,
+        process_id_gen=None,
+        genotype_type=None,
+        Individual=None,
+        safe_evaluate_generation=None,
+        gen_next_individual_id=None,
+    ):
+        # let user select parents
+        parent_selections = self.__safe_select_parents(
+            [i.genotype for i in self._latest_population],
+            self._latest_fitnesses,
+            self.__offspring_size,
+        )
+
+        # let user create offspring
+        offspring = [
+            self.__safe_mutate(
+                self.__safe_crossover([self._latest_population[i].genotype for i in s])
+            )
+            for s in parent_selections
+        ]
+
+        # let user evaluate offspring
+        new_fitnesses, new_results = await self.__safe_evaluate_generation(
+            offspring,
+            self.__database,
+            self.__process_id_gen.gen(),
+            self.__process_id_gen,
+        )
+
+        # combine to create list of individuals
+        new_individuals = [
+            _Individual(
+                -1,  # placeholder until later
+                genotype,
+                [self._latest_population[i].id for i in parent_indices],
+            )
+            for parent_indices, genotype in zip(parent_selections, offspring)
+        ]
+
+        # let user select survivors between old and new individuals
+        old_survivors, new_survivors = self.__safe_select_survivors(
+            [i.genotype for i in self._latest_population],
+            self._latest_fitnesses,
+            [i.genotype for i in new_individuals],
+            new_fitnesses,
+            len(self._latest_population),
+        )
+
+        survived_new_individuals = [new_individuals[i] for i in new_survivors]
+        survived_new_fitnesses = [new_fitnesses[i] for i in new_survivors]
+        survived_new_results = [new_results[i] for i in new_survivors]
+
+        # set ids for new individuals
+        for individual in survived_new_individuals:
+            individual.id = self.__gen_next_individual_id()
+
+        # combine old and new and store as the new generation
+        self._latest_population = [
+            self._latest_population[i] for i in old_survivors
+        ] + survived_new_individuals
+
+        self._latest_fitnesses = [
+            self._latest_fitnesses[i] for i in old_survivors
+        ] + survived_new_fitnesses
+
+        self._latest_results = [
+            self._latest_results[i] for i in old_survivors
+        ] + survived_new_results
+
+        return survived_new_individuals, survived_new_fitnesses
+
     async def run(self) -> None:
         """Run the optimizer."""
+        # if optimzer is not EA optimizer, body_name will be used by overided method
+        body_name = self.init_optimizer(
+            param=(
+                self.__offspring_size,
+                self.__genotype_type,
+                self.__safe_evaluate_generation,
+            )
+        )
         # evaluate initial population if required
         if self._latest_fitnesses is None:
             (
@@ -384,70 +470,16 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
 
         while self.__safe_must_do_next_gen():
 
-            # let user select parents
-            parent_selections = self.__safe_select_parents(
-                [i.genotype for i in self._latest_population],
-                self._latest_fitnesses,
-                self.__offspring_size,
+            # if optimizer is not EA optimzier, all parameters will be used by overided method
+            survived_new_individuals, survived_new_fitnesses = await self.evolve_step(
+                body_name=body_name,
+                database=self.__database,
+                process_id_gen=self.__process_id_gen,
+                Individual=_Individual,
+                genotype_type=self.__genotype_type,
+                safe_evaluate_generation=self.__safe_evaluate_generation,
+                gen_next_individual_id=self.__gen_next_individual_id,
             )
-
-            # let user create offspring
-            offspring = [
-                self.__safe_mutate(
-                    self.__safe_crossover(
-                        [self._latest_population[i].genotype for i in s]
-                    )
-                )
-                for s in parent_selections
-            ]
-
-            # let user evaluate offspring
-            new_fitnesses, new_results = await self.__safe_evaluate_generation(
-                offspring,
-                self.__database,
-                self.__process_id_gen.gen(),
-                self.__process_id_gen,
-            )
-
-            # combine to create list of individuals
-            new_individuals = [
-                _Individual(
-                    -1,  # placeholder until later
-                    genotype,
-                    [self._latest_population[i].id for i in parent_indices],
-                )
-                for parent_indices, genotype in zip(parent_selections, offspring)
-            ]
-
-            # let user select survivors between old and new individuals
-            old_survivors, new_survivors = self.__safe_select_survivors(
-                [i.genotype for i in self._latest_population],
-                self._latest_fitnesses,
-                [i.genotype for i in new_individuals],
-                new_fitnesses,
-                len(self._latest_population),
-            )
-
-            survived_new_individuals = [new_individuals[i] for i in new_survivors]
-            survived_new_fitnesses = [new_fitnesses[i] for i in new_survivors]
-            survived_new_results = [new_results[i] for i in new_survivors]
-
-            # set ids for new individuals
-            for individual in survived_new_individuals:
-                individual.id = self.__gen_next_individual_id()
-
-            # combine old and new and store as the new generation
-            self._latest_population = [
-                self._latest_population[i] for i in old_survivors
-            ] + survived_new_individuals
-
-            self._latest_fitnesses = [
-                self._latest_fitnesses[i] for i in old_survivors
-            ] + survived_new_fitnesses
-
-            self._latest_results = [
-                self._latest_results[i] for i in old_survivors
-            ] + survived_new_results
 
             self.__generation_index += 1
 

@@ -6,7 +6,7 @@ from revolve2.core.physics.running._results import EnvironmentResults
 import logging
 import measures
 
-control_cost_weight = 1e-7
+control_cost_weight = 5e-5
 
 
 def displacement_height_groundcontact(environment_results: EnvironmentResults) -> float:
@@ -66,6 +66,20 @@ def health_with_control_cost(environment_results: EnvironmentResults) -> float:
     return base_fitness - control_cost + healthy_reward
 
 
+def clipped_health(environment_results: EnvironmentResults) -> float:
+    total_steps = len(environment_results.environment_states)
+
+    base_fitness = measures.displacement_measure(environment_results)
+    healthy_reward = total_steps * 0.05
+
+    return base_fitness + min([2.0, healthy_reward])
+
+
+def health_only(environment_results: EnvironmentResults) -> float:
+    print(float(len(environment_results.environment_states)))
+    return float(len(environment_results.environment_states))
+
+
 def with_control_cost(environment_results: EnvironmentResults) -> float:
     base_fitness = measures.displacement_measure(environment_results)
     control_cost = control_cost_weight * measures.control_cost(environment_results)
@@ -95,6 +109,8 @@ fitness_functions = {
     "displacement_height": displacement_height,
     "displacement_only": displacement_only,
     "health_with_control_cost": health_with_control_cost,
+    "clipped_health": clipped_health,
+    "health_only": health_only,
     "with_control_cost": with_control_cost,
     "with_control_height_cost": with_control_height_cost,
     "directed_displacement_only": directed_displacement_only,
