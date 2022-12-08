@@ -69,7 +69,7 @@ def clipped_health(environment_results: EnvironmentResults) -> float:
     base_fitness = measures.displacement_measure(environment_results)
     healthy_reward = total_steps * 0.05
 
-    return base_fitness + min([1.0, healthy_reward])
+    return base_fitness + min([2.0, healthy_reward])
 
 
 def health_only(environment_results: EnvironmentResults) -> float:

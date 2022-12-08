@@ -294,7 +294,7 @@ class LocalRunner(Runner):
             robot = mjcf.from_file(botfile)
             botfile.close()
 
-            force_range = 5.0
+            force_range = 4.0
             for joint in posed_actor.actor.joints:
                 # robot.actuator.add(
                 #     "intvelocity",
@@ -317,15 +317,15 @@ class LocalRunner(Runner):
                         identifier=joint.name,
                     ),
                 )
-                robot.actuator.add(
-                    "velocity",
-                    kv=0.05,
-                    # kv=0.4,
-                    # kv=0.05,
-                    ctrlrange="-1.0 1.0",
-                    forcerange=f"{-force_range} {force_range}",
-                    joint=robot.find(namespace="joint", identifier=joint.name),
-                )
+                # robot.actuator.add(
+                #     "velocity",
+                #     kv=0.05,
+                #     # kv=0.4,
+                #     # kv=0.05,
+                #     ctrlrange="-1.0 1.0",
+                #     forcerange=f"{-force_range} {force_range}",
+                #     joint=robot.find(namespace="joint", identifier=joint.name),
+                # )
 
             attachment_frame = env_mjcf.attach(robot)
             attachment_frame.add("freejoint")

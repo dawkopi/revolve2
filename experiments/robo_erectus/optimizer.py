@@ -44,6 +44,7 @@ from fitness import fitness_functions
 from measures import *
 import utilities
 from utilities import actor_get_default_pose, actor_get_standing_pose
+import numpy as np
 
 
 class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
@@ -343,8 +344,14 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             ]
             fitness_samples.append(fitness_sample)
 
+        # fitness = [
+        #     float(np.mean(samples) - np.std(samples))
+        #     for samples in zip(*fitness_samples)
+        # ]
+        # fitness = [float(np.mean(samples)) for samples in zip(*fitness_samples)]
         fitness = [
-            sum(samples) / len(fitness_samples) for samples in zip(*fitness_samples)
+            float(np.mean(samples) + np.std(samples))
+            for samples in zip(*fitness_samples)
         ]
 
         return fitness, environment_results

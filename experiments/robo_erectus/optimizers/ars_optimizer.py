@@ -29,6 +29,7 @@ class ArsOptimizer(Optimizer):
             "seed": 237,
             "policy_type": "linear",
             "dir_path": "data",
+            # "filter": "NoFilter",
             "filter": "MeanStdFilter",
         }
 

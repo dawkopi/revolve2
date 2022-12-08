@@ -11,7 +11,12 @@ class LinearController(ActorController):
 
     def step(self, state: ActorState, dt: float) -> None:
         inputs = np.concatenate(
-            [state.position, state.orientation, state.hinge_angles, state.hinge_vels]
+            [
+                state.position[2:],
+                state.orientation,
+                state.hinge_angles,
+                state.hinge_vels,
+            ]
         ).ravel()
         # self.state = np.matmul(inputs, self.policy)
         self.state = np.tanh(np.matmul(inputs, self.policy))
@@ -21,9 +26,9 @@ class LinearController(ActorController):
 
     @staticmethod
     def get_input_size(dof_size: int) -> int:
-        # note: len(position) == 3, len(orientation) == 4
+        # note: len(position[2:]) == 1, len(orientation) == 4
         #   and each hinge has 2 value (pos and vel)
-        return 3 + 4 + dof_size * 2
+        return 1 + 4 + dof_size * 2
 
     def serialize(self):
         pass
