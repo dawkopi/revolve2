@@ -107,7 +107,8 @@ class LocalRunner(Runner):
                 if video_path:
                     # viewer._render_every_frame = False  # save a lot of time
                     # http://tsaith.github.io/combine-images-into-a-video-with-python-3-and-opencv-3.html
-                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    # https://stackoverflow.com/a/55987868
+                    fourcc = cv2.VideoWriter_fourcc(*"VP80")  # "mp4v" "H264" "avc1"
                     vid = cv2.VideoWriter(
                         video_path,
                         fourcc,

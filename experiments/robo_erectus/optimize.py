@@ -59,10 +59,9 @@ async def main() -> None:
         # default="displacement_only",
     )  # "displacement_height_groundcontact"
     parser.add_argument(
-        "-b",
-        "--save_best",
+        "--skip_best",
         action="store_true",
-        help="output the best robots to disk",
+        help="don't output the best robots to disk",
     )
     parser.add_argument(
         "--best_dur",
@@ -221,14 +220,14 @@ async def main() -> None:
 
     logging.info("Finished optimizing.")
 
-    if args.save_best:
+    if not args.skip_best:
         logging.info("\n\nrunning rerun_best.py")
         call_rerun_best(run_name=args.run_name, count=4, dur_sec=args.best_dur)
         if args.wandb:
-            # now save files wandb if needed
+            # now save files to wandb if needed
             analysis_dir = os.path.join(database_dir, "analysis")
             UPLOAD_GLOBS = [
-                os.path.join(analysis_dir, "*.mp4"),
+                os.path.join(analysis_dir, "*.webm"),
                 os.path.join(analysis_dir, "*.yml"),
             ]
             fnames = []
@@ -246,7 +245,7 @@ async def main() -> None:
 
 
 def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
-    """Output mp4 and xml files of best robots."""
+    """Output video and xml files of best robots."""
     SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
     RERUN_SCRIPT = os.path.join(SCRIPT_DIR, "rerun_best.py")
 
