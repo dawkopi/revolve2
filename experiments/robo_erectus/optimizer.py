@@ -5,7 +5,6 @@ import pickle
 from random import Random
 from typing import List, Tuple
 
-import multineat
 import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
@@ -58,8 +57,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
     _controllers: List[ActorController]
 
-    _innov_db_body: multineat.InnovationDatabase
-    _innov_db_brain: multineat.InnovationDatabase
+    _innov_db_body: None
+    _innov_db_brain: None
 
     _rng: Random
 
@@ -86,8 +85,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         process_id_gen: ProcessIdGen,
         initial_population: List[LinearControllerGenotype],
         rng: Random,
-        innov_db_body: multineat.InnovationDatabase,
-        innov_db_brain: multineat.InnovationDatabase,
+        innov_db_body: None,
+        innov_db_brain: None,
         simulation_time: int,
         sampling_frequency: float,
         control_frequency: float,
@@ -155,8 +154,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         process_id: int,
         process_id_gen: ProcessIdGen,
         rng: Random,
-        innov_db_body: multineat.InnovationDatabase,
-        innov_db_brain: multineat.InnovationDatabase,
+        innov_db_body: None,
+        innov_db_brain: None,
         headless: bool = True,
     ) -> bool:
         """
@@ -392,8 +391,8 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 process_id=self._process_id,
                 generation_index=self.generation_index,
                 rng=pickle.dumps(self._rng.getstate()),
-                innov_db_body=self._innov_db_body.Serialize(),
-                innov_db_brain=self._innov_db_brain.Serialize(),
+                innov_db_body=0,
+                innov_db_brain=0,
                 simulation_time=self._simulation_time,
                 sampling_frequency=self._sampling_frequency,
                 control_frequency=self._control_frequency,

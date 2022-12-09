@@ -7,7 +7,6 @@ import subprocess
 import numpy as np
 from random import Random
 
-import multineat
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
 
@@ -170,17 +169,13 @@ async def main() -> None:
     if args.offspring_size is None:
         args.offspring_size = args.population_size
 
-    # multineat innovation databases
-    innov_db_body = multineat.InnovationDatabase()
-    innov_db_brain = multineat.InnovationDatabase()
-
     # database
     database = open_async_database_sqlite(database_dir)
     maybe_optimizer = await Optimizer.from_database(
         database=database,
         process_id=process_id,
-        innov_db_body=innov_db_body,
-        innov_db_brain=innov_db_brain,
+        innov_db_body=None,
+        innov_db_brain=None,
         rng=rng,
         process_id_gen=process_id_gen,
         headless=not args.gui,
@@ -200,8 +195,8 @@ async def main() -> None:
             initial_population=initial_population,
             rng=rng,
             process_id_gen=process_id_gen,
-            innov_db_body=innov_db_body,
-            innov_db_brain=innov_db_brain,
+            innov_db_body=None,
+            innov_db_brain=None,
             simulation_time=args.simulation_time,
             sampling_frequency=args.sampling_frequency,
             control_frequency=args.control_frequency,

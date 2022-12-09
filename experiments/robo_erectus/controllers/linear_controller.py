@@ -18,8 +18,8 @@ class LinearController(ActorController):
                 state.hinge_vels,
             ]
         ).ravel()
-        # self.state = np.matmul(inputs, self.policy)
-        self.state = np.tanh(np.matmul(inputs, self.policy))
+        self.state = np.matmul(inputs, self.policy)
+        # self.state = np.tanh(np.matmul(inputs, self.policy))
 
     def get_dof_targets(self) -> List[float]:
         return self.state.tolist()
