@@ -128,7 +128,7 @@ async def main() -> None:
                     .limit(max_count)
                 )
             ).all()
-            gen_name = gen_optimizer.generation_index + 1
+            # gen_name = gen_optimizer.generation_index + 1
             print(
                 f"found {len(best_individuals)} best robots (within generation {gen_name}) \n"
             )

@@ -38,7 +38,7 @@ from revolve2.core.physics.running import (
     EnvironmentState,
     Runner,
 )
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 
 
 class LocalRunner(Runner):
@@ -86,8 +86,12 @@ class LocalRunner(Runner):
             xml_string = self._make_mjcf(env_descr)
             model = mujoco.MjModel.from_xml_string(xml_string)
 
-            # TODO initial dof state
             data = mujoco.MjData(model)
+
+            # set initial dof state
+            LocalRunner._set_initial_hinge_states(
+                data, model, noise_angles=0.25, noise_vels=0.25
+            )
 
             initial_targets = [
                 dof_state
@@ -439,3 +443,47 @@ class LocalRunner(Runner):
             for i, target in enumerate(targets):
                 data.ctrl[2 * i] = target
                 data.ctrl[2 * i + 1] = 0
+
+    @staticmethod
+    def _set_initial_hinge_states(
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        angles: Optional[List[float]] = None,
+        vels: Optional[List[float]] = None,
+        noise_angles: float = 1e-2,
+        noise_vels: float = 1e-2,
+    ) -> None:
+        """
+        Set initial angles and velocities of joints.
+        Not the control targets but the angles/velocities themselves).
+        If angles and vels aren't provided then they're computed randomly (according to magnitude of noise_angles and noise_vels)
+
+        Inspired loosely by https://github.com/Farama-Foundation/Gymnasium/blob/a10bcd858ee2175db61889d871d51cfee1ef19a8/gymnasium/envs/mujoco/humanoid_v4.py#L361
+        ^which defaults to uniform random  in [-1e-2, 1e-2]
+        """
+        jnt_hinge_indices = [
+            i
+            for i, val in enumerate(model.jnt_type)
+            if val == mujoco.mjtJoint.mjJNT_HINGE
+        ]
+        num_hinges = len(jnt_hinge_indices)
+
+        if angles is None:
+            angles = np.random.uniform(
+                low=-abs(noise_angles), high=abs(noise_angles), size=num_hinges
+            )
+        if vels is None:
+            vels = np.random.uniform(
+                low=-abs(noise_vels), high=abs(noise_vels), size=num_hinges
+            )
+
+        if len(angles) != len(vels) or num_hinges != len(angles):
+            raise RuntimeError(
+                f"Number of target angles and velcoities doesn't match the number of actuators ({len(angles)} vs {len(vels)} vs {num_hinges})"
+            )
+
+        # set initial angles and dof (velocities)
+        for i in range(num_hinges):
+            jnt_idx = jnt_hinge_indices[i]
+            data.qpos[model.jnt_qposadr[jnt_idx]] = angles[i]
+            data.qvel[model.jnt_dofadr[jnt_idx]] = angles[i]
