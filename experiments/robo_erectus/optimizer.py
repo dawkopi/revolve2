@@ -310,22 +310,25 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
                 batch, is_healthy=is_healthy
             )
 
+        n_samples = self.samples if len(genotypes) > 1 else 16
         logging.info(
-            f"Starting simulation batch with mujoco - {len(genotypes)} evaluations."
+            f"Starting simulation batch with mujoco - {len(genotypes)} evaluations, {n_samples} samples."
         )
+        _batch_result_samples = []
         batch_result_samples = []
-        for i in range(self.samples):
-            logging.info(f"Evaluating sample {i}.")
-            if self.n_jobs > 1:
-                batch_result_samples.append(
-                    Parallel(n_jobs=self.n_jobs)(
-                        delayed(_evaluate)(genotype, True) for genotype in genotypes
-                    )
-                )
-            else:
-                batch_result_samples.append(
-                    [_evaluate(genotype, self._headless) for genotype in genotypes]
-                )
+        if self.n_jobs > 1:
+            _batch_result_samples = Parallel(n_jobs=self.n_jobs)(
+                delayed(_evaluate)(genotype, True) for genotype in genotypes * n_samples
+            )
+        else:
+            _batch_result_samples = [
+                _evaluate(genotype, self._headless)
+                for genotype in genotypes * n_samples
+            ]
+        for i in range(n_samples):
+            batch_result_samples.append(
+                _batch_result_samples[i * len(genotypes) : (i + 1) * len(genotypes)]
+            )
         logging.info("Finished batch.")
         logging.info(self._fitness_function)
 
@@ -347,11 +350,11 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         #     float(np.mean(samples) - np.std(samples))
         #     for samples in zip(*fitness_samples)
         # ]
-        # fitness = [float(np.mean(samples)) for samples in zip(*fitness_samples)]
-        fitness = [
-            float(np.mean(samples) + np.std(samples))
-            for samples in zip(*fitness_samples)
-        ]
+        fitness = [float(np.mean(samples)) for samples in zip(*fitness_samples)]
+        # fitness = [
+        #     float(np.mean(samples) + 2 * np.std(samples))
+        #     for samples in zip(*fitness_samples)
+        # ]
 
         return fitness, environment_results
 

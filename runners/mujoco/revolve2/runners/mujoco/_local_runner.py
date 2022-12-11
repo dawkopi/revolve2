@@ -90,7 +90,7 @@ class LocalRunner(Runner):
 
             # set initial dof state
             LocalRunner._set_initial_hinge_states(
-                data, model, noise_angles=0.25, noise_vels=0.25
+                data, model, noise_angles=0.02, noise_vels=0.02
             )
 
             initial_targets = [
@@ -293,7 +293,7 @@ class LocalRunner(Runner):
             # mujoco can only save to a file, not directly to string,
             # so we create a temporary file.
             botfile = tempfile.NamedTemporaryFile(
-                mode="r+", delete=False, suffix=".urdf"
+                mode="r+", delete=True, suffix=".urdf"
             )
             mujoco.mj_saveLastXML(botfile.name, model)
             robot = mjcf.from_file(botfile)
