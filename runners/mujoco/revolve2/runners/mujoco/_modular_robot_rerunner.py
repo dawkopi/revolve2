@@ -8,6 +8,7 @@ from revolve2.actor_controller import ActorController
 from revolve2.core.modular_robot import ModularRobot
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
+from revolve2.core.physics.running._results import ActorState
 
 from revolve2.runners.mujoco import LocalRunner
 
@@ -19,7 +20,8 @@ class ModularRobotRerunner:
 
     async def rerun(
         self,
-        robot: ModularRobot,
+        actor,
+        controller,
         control_frequency: float,
         simulation_time: int = 1000000,
         get_pose: Union[Callable[[Actor], Tuple[Vector3, Quaternion]], None] = None,
@@ -40,7 +42,9 @@ class ModularRobotRerunner:
             control=self._control,
         )
 
-        env, self._controller = ModularRobotRerunner.robot_to_env(robot, get_pose)
+        env, self._controller = ModularRobotRerunner.robot_to_env(
+            actor, controller, get_pose
+        )
         batch.environments.append(env)
 
         headless = bool(video_path)
@@ -48,15 +52,20 @@ class ModularRobotRerunner:
         await runner.run_batch(batch, video_path=video_path)
 
     def _control(
-        self, environment_index: int, dt: float, control: ActorControl
+        self,
+        environment_index: int,
+        state: ActorState,
+        dt: float,
+        control: ActorControl,
     ) -> None:
-        self._controller.step(dt)
+        self._controller.step(state, dt)
         control.set_dof_targets(0, self._controller.get_dof_targets())
 
     @staticmethod
     def robot_to_env(
-        robot: ModularRobot,
-        get_pose: Union[Callable[[Actor], Tuple[Vector3, Quaternion]], None] = None,
+        actor,
+        controller,
+        get_pose: Callable[[Actor], Tuple[Vector3, Quaternion]] = None,
     ) -> Tuple[Environment, ActorController]:
         """
         Construct an Environment object and contoller for a single robot.
@@ -65,7 +74,6 @@ class ModularRobotRerunner:
             robot: ModularRobot to create Environment for
             get_pose: optional function for computing the initial pose of the robot
         """
-        actor, controller = robot.make_actor_and_controller()
         env = Environment()
         pos, rot = Vector3([0.0, 0.0, 0.1]), Quaternion()
         if get_pose is not None:

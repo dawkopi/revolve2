@@ -77,6 +77,8 @@ jobs:
         run: bash .github/workflows/install_dev.sh
       - name: install pytest and erectus dependencies
         run: pip install -r experiments/robo_erectus/requirements.txt
+      - name: create dummy display
+        run: bash .github/workflows/install_dummy_screen.sh
       - name: run pytest
         run: pytest -v tests/
 

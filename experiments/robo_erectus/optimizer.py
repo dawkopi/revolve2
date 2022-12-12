@@ -1,16 +1,18 @@
 """Optimizer for finding a good modular robot body and brain using CPPNWIN genotypes and simulation using mujoco."""
 
 import logging
-import math
 import pickle
 from random import Random
 from typing import List, Tuple
 
-import multineat
 import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
+from revolve2.core.physics.running._results import ActorState
 import sqlalchemy
+import wandb
+from fitness import fitness_functions
+from measures import *
 from pyrr import Quaternion, Vector3
 from revolve2.actor_controller import ActorController
 from revolve2.core.database import IncompatibleError
@@ -19,27 +21,32 @@ from revolve2.core.optimization import ProcessIdGen
 from revolve2.core.optimization.ea.generic_ea import EAOptimizer
 from revolve2.core.physics.actor import Actor
 from revolve2.core.physics.running import (
-    ActorControl,
-    ActorState,
     Batch,
     Environment,
     PosedActor,
-    Runner,
 )
-from revolve2.core.physics.running._results import EnvironmentResults
 from revolve2.runners.mujoco import LocalRunner
 from sqlalchemy.ext.asyncio import AsyncEngine
 from sqlalchemy.ext.asyncio.session import AsyncSession
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.future import select
+from joblib import Parallel, delayed
+from controllers.controller_wrapper import *
+
+from genotypes.linear_controller_genotype import (
+    LinearControllerGenotype,
+    LinearGenotypeSerializer,
+)
 
 import wandb
 from fitness import fitness_functions
-from genotype import Genotype, GenotypeSerializer, crossover, develop, mutate
 from measures import *
+import utilities
+from utilities import actor_get_default_pose, actor_get_standing_pose
+import numpy as np
 
 
-class Optimizer(EAOptimizer[Genotype, float]):
+class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
     """
     Optimizer for the problem.
 
@@ -48,12 +55,10 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
     _process_id: int
 
-    _runner: Runner
-
     _controllers: List[ActorController]
 
-    _innov_db_body: multineat.InnovationDatabase
-    _innov_db_brain: multineat.InnovationDatabase
+    _innov_db_body: None
+    _innov_db_brain: None
 
     _rng: Random
 
@@ -67,22 +72,28 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
     _headless: bool = True  # whether to hide sim GUI
 
+    n_jobs: int = 1
+    samples: int = 1
+
+    _body_name: str
+
     async def ainit_new(  # type: ignore # TODO for now ignoring mypy complaint about LSP problem, override parent's ainit
         self,
         database: AsyncEngine,
         session: AsyncSession,
         process_id: int,
         process_id_gen: ProcessIdGen,
-        initial_population: List[Genotype],
+        initial_population: List[LinearControllerGenotype],
         rng: Random,
-        innov_db_body: multineat.InnovationDatabase,
-        innov_db_brain: multineat.InnovationDatabase,
+        innov_db_body: None,
+        innov_db_brain: None,
         simulation_time: int,
         sampling_frequency: float,
         control_frequency: float,
         num_generations: int,
         offspring_size: int,
         fitness_function: str,
+        body_name: str,
         headless: bool = True,
     ) -> None:
         """
@@ -109,8 +120,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
             session=session,
             process_id=process_id,
             process_id_gen=process_id_gen,
-            genotype_type=Genotype,
-            genotype_serializer=GenotypeSerializer,
+            genotype_type=LinearControllerGenotype,
+            genotype_serializer=LinearGenotypeSerializer,
             fitness_type=float,
             fitness_serializer=FloatSerializer,
             offspring_size=offspring_size,
@@ -119,7 +130,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         self._process_id = process_id
         self._headless = headless
-        self._init_runner()
         self._innov_db_body = innov_db_body
         self._innov_db_brain = innov_db_brain
         self._rng = rng
@@ -128,6 +138,7 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._control_frequency = control_frequency
         self._num_generations = num_generations
         self._fitness_function = fitness_function
+        self._body_name = body_name
 
         # create database structure if not exists
         # TODO this works but there is probably a better way
@@ -143,8 +154,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
         process_id: int,
         process_id_gen: ProcessIdGen,
         rng: Random,
-        innov_db_body: multineat.InnovationDatabase,
-        innov_db_brain: multineat.InnovationDatabase,
+        innov_db_body: None,
+        innov_db_brain: None,
         headless: bool = True,
     ) -> bool:
         """
@@ -167,8 +178,8 @@ class Optimizer(EAOptimizer[Genotype, float]):
             session=session,
             process_id=process_id,
             process_id_gen=process_id_gen,
-            genotype_type=Genotype,
-            genotype_serializer=GenotypeSerializer,
+            genotype_type=LinearControllerGenotype,
+            genotype_serializer=LinearGenotypeSerializer,
             fitness_type=float,
             fitness_serializer=FloatSerializer,
         ):
@@ -176,7 +187,6 @@ class Optimizer(EAOptimizer[Genotype, float]):
 
         self._process_id = process_id
         self._headless = headless
-        self._init_runner()
 
         opt_row = (
             (
@@ -208,87 +218,81 @@ class Optimizer(EAOptimizer[Genotype, float]):
         self._innov_db_brain.Deserialize(opt_row.innov_db_brain)
 
         self._fitness_function = opt_row.fitness_function
+        self._body_name = opt_row.body_name
 
         return True
 
-    def _init_runner(self) -> None:
-        logging.info(f"initalizing runner (headless={self._headless})")
-        self._runner = LocalRunner(headless=self._headless)
-
     def _select_parents(
         self,
-        population: List[Genotype],
+        population: List[LinearControllerGenotype],
         fitnesses: List[float],
         num_parent_groups: int,
     ) -> List[List[int]]:
-        return [
-            selection.multiple_unique(
-                2,
-                population,
-                fitnesses,
-                lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=2),
-            )
-            for _ in range(num_parent_groups)
-        ]
+        # no crossover, return whole population
+        return [[i] for i in range(len(population))]
 
     def _select_survivors(
         self,
-        old_individuals: List[Genotype],
+        old_individuals: List[LinearControllerGenotype],
         old_fitnesses: List[float],
-        new_individuals: List[Genotype],
+        new_individuals: List[LinearControllerGenotype],
         new_fitnesses: List[float],
         num_survivors: int,
     ) -> Tuple[List[int], List[int]]:
         assert len(old_individuals) == num_survivors
 
-        return population_management.steady_state(
-            old_individuals,
-            old_fitnesses,
+        # elitism
+
+        elite_size = max([1, len(old_individuals) // 10])
+        non_elite_size = len(old_individuals) - elite_size
+
+        old_survivors = selection.topn(elite_size, old_individuals, old_fitnesses)
+        new_survivors = selection.multiple_unique(
+            non_elite_size,
             new_individuals,
             new_fitnesses,
-            lambda n, genotypes, fitnesses: selection.multiple_unique(
-                n,
-                genotypes,
-                fitnesses,
-                lambda genotypes, fitnesses: selection.tournament(
-                    self._rng, fitnesses, k=2
-                ),
-            ),
+            lambda _, fitnesses: selection.tournament(self._rng, fitnesses, k=4),
         )
+
+        return old_survivors, new_survivors
 
     def _must_do_next_gen(self) -> bool:
         return self.generation_index != self._num_generations
 
-    def _crossover(self, parents: List[Genotype]) -> Genotype:
-        assert len(parents) == 2
-        return crossover(parents[0], parents[1], self._rng)
+    def _crossover(
+        self, parents: List[LinearControllerGenotype]
+    ) -> LinearControllerGenotype:
+        # crossover removed - it's useless
+        return parents[0]
 
-    def _mutate(self, genotype: Genotype) -> Genotype:
-        return mutate(genotype, self._innov_db_body, self._innov_db_brain, self._rng)
+    def _mutate(self, genotype: LinearControllerGenotype) -> LinearControllerGenotype:
+        genotype.genotype += np.random.normal(scale=0.1, size=genotype.genotype.shape)
+        return genotype
 
     async def _evaluate_generation(
         self,
-        genotypes: List[Genotype],
+        genotypes: List[LinearControllerGenotype],
         database: AsyncEngine,
         process_id: int,
         process_id_gen: ProcessIdGen,
     ) -> List[float]:
-        batch = Batch(
-            simulation_time=self._simulation_time,
-            sampling_frequency=self._sampling_frequency,
-            control_frequency=self._control_frequency,
-            control=self._control,
-        )
+        _simulation_time = self._simulation_time
+        _sampling_frequency = self._sampling_frequency
+        _control_frequency = self._control_frequency
 
-        self._controllers = []
+        def _evaluate(genotype, headless):
+            actor, controller = genotype.develop()
 
-        for genotype in genotypes:
-            # here the actual controllers are created:
-            actor, controller = develop(genotype).make_actor_and_controller()
-            # bounding_box = actor.calc_aabb()
-            self._controllers.append(controller)
+            controller_wrapper = ControllerWrapper(controller)
+            batch = Batch(
+                simulation_time=_simulation_time,
+                sampling_frequency=_sampling_frequency,
+                control_frequency=_control_frequency,
+                control=controller_wrapper._control,
+            )
+
+            pos, rot = genotype.get_initial_pose(actor)
             # pos, rot = actor_get_default_pose(actor)
-            pos, rot = actor_get_standing_pose(actor)
             env = Environment()
             env.actors.append(
                 PosedActor(
@@ -300,52 +304,89 @@ class Optimizer(EAOptimizer[Genotype, float]):
             )
             batch.environments.append(env)
 
-        batch_results = await self._runner.run_batch(batch)
-
-        logging.info(self._fitness_function)
-        fitness = [
-            fitness_functions[self._fitness_function](environment_result)
-            for environment_result, environment in zip(
-                batch_results.environment_results, batch.environments
+            # assumes all genotypes are same body name/type (e.g. "spider")
+            is_healthy = genotypes[0].is_healthy
+            return LocalRunner(headless=headless).run_batch_sync(
+                batch, is_healthy=is_healthy
             )
-        ]
-        displacement = [
-            displacement_measure(r) for r in batch_results.environment_results
-        ]
+
+        n_samples = self.samples if len(genotypes) > 1 else 16
+        logging.info(
+            f"Starting simulation batch with mujoco - {len(genotypes)} evaluations, {n_samples} samples."
+        )
+        _batch_result_samples = []
+        batch_result_samples = []
+        if self.n_jobs > 1:
+            _batch_result_samples = Parallel(n_jobs=self.n_jobs)(
+                delayed(_evaluate)(genotype, True) for genotype in genotypes * n_samples
+            )
+        else:
+            _batch_result_samples = [
+                _evaluate(genotype, self._headless)
+                for genotype in genotypes * n_samples
+            ]
+        for i in range(n_samples):
+            batch_result_samples.append(
+                _batch_result_samples[i * len(genotypes) : (i + 1) * len(genotypes)]
+            )
+        logging.info("Finished batch.")
+        logging.info(self._fitness_function)
+
+        environment_results = []
+        fitness_samples = []
+        for batch_results_sample in batch_result_samples:
+            environment_results_sample = [
+                br.environment_results[0] for br in batch_results_sample
+            ]
+            environment_results += environment_results_sample
+
+            fitness_sample = [
+                fitness_functions[self._fitness_function](environment_result)
+                for environment_result in environment_results_sample
+            ]
+            fitness_samples.append(fitness_sample)
+
+        # fitness = [
+        #     float(np.mean(samples) - np.std(samples))
+        #     for samples in zip(*fitness_samples)
+        # ]
+        fitness = [float(np.mean(samples)) for samples in zip(*fitness_samples)]
+        # fitness = [
+        #     float(np.mean(samples) + 2 * np.std(samples))
+        #     for samples in zip(*fitness_samples)
+        # ]
+
+        return fitness, environment_results
+
+    def _log_results(self) -> None:
+        displacement = [displacement_measure(r) for r in self._latest_results]
+        steps = [len(r.environment_states) for r in self._latest_results]
 
         wandb.log(
             {
+                "steps_max": max(steps),
+                "steps_avg": sum(steps) / len(steps),
+                "steps_min": min(steps),
+                "steps": wandb.Histogram(steps),
                 "displacement_max": max(displacement),
                 "displacement_avg": sum(displacement) / len(displacement),
                 "displacement_min": min(displacement),
-                "fitness_max": max(fitness),
-                "fitness_avg": sum(fitness) / len(fitness),
-                "fitness_min": min(fitness),
+                "fitness_max": max(self._latest_fitnesses),
+                "fitness_avg": sum(self._latest_fitnesses)
+                / len(self._latest_fitnesses),
+                "fitness_min": min(self._latest_fitnesses),
                 "displacement": wandb.Histogram(displacement),
                 "max_height_relative_to_avg_height": wandb.Histogram(
                     [
                         max_height_relative_to_avg_height_measure(r)
-                        for r in batch_results.environment_results
+                        for r in self._latest_results
                     ]
                 ),
                 "ground_contact_measure": wandb.Histogram(
-                    [
-                        ground_contact_measure(r)
-                        for r in batch_results.environment_results
-                    ]
+                    [ground_contact_measure(r) for r in self._latest_results]
                 ),
             }
         )
-
-        return fitness
-
-    def _control(
-        self, environment_index: int, dt: float, control: ActorControl
-    ) -> None:
-        """Set up controller for batch that influnces models in simulation."""
-        controller = self._controllers[environment_index]
-        controller.step(dt)
-        control.set_dof_targets(0, controller.get_dof_targets())
 
     def _on_generation_checkpoint(self, session: AsyncSession) -> None:
         session.add(
@@ -353,48 +394,16 @@ class Optimizer(EAOptimizer[Genotype, float]):
                 process_id=self._process_id,
                 generation_index=self.generation_index,
                 rng=pickle.dumps(self._rng.getstate()),
-                innov_db_body=self._innov_db_body.Serialize(),
-                innov_db_brain=self._innov_db_brain.Serialize(),
+                innov_db_body=0,
+                innov_db_brain=0,
                 simulation_time=self._simulation_time,
                 sampling_frequency=self._sampling_frequency,
                 control_frequency=self._control_frequency,
                 num_generations=self._num_generations,
                 fitness_function=self._fitness_function,
+                body_name=self._body_name,
             )
         )
-
-
-def actor_get_standing_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """
-    Given an actor, return a pose (such that it starts out "standing" upright).
-
-    Returns tuple (pos, rot).
-    """
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            # due to rotating about the y axis, the box's x size becomes the new effective "z" height of the box
-            bounding_box.size.x / 2.0 - bounding_box.offset.x,
-        ]
-    )
-    rot = Quaternion.from_y_rotation(-np.pi / 2)
-    return (pos, rot)
-
-
-def actor_get_default_pose(actor: Actor) -> Tuple[Vector3, Quaternion]:
-    """Original method of computing initial pose for an Actor (so it starts "flat" on the ground)."""
-    bounding_box = actor.calc_aabb()
-    pos = Vector3(
-        [
-            0.0,
-            0.0,
-            bounding_box.size.z / 2.0 - bounding_box.offset.z,
-        ]
-    )
-    rot = Quaternion()
-    return (pos, rot)
 
 
 DbBase = declarative_base()
@@ -421,3 +430,7 @@ class DbOptimizerState(DbBase):
     control_frequency = sqlalchemy.Column(sqlalchemy.Float, nullable=False)
     num_generations = sqlalchemy.Column(sqlalchemy.Integer, nullable=False)
     fitness_function = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+
+    body_name = sqlalchemy.Column(
+        sqlalchemy.String, nullable=False
+    )  # e.g. "erectus" | "spider"

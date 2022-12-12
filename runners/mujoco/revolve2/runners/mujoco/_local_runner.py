@@ -1,6 +1,6 @@
 import math
 import tempfile
-from typing import List
+from typing import List, Set
 
 import cv2
 import mujoco_viewer
@@ -38,6 +38,7 @@ from revolve2.core.physics.running import (
     EnvironmentState,
     Runner,
 )
+from typing import Callable, Optional, Tuple
 
 
 class LocalRunner(Runner):
@@ -53,30 +54,44 @@ class LocalRunner(Runner):
         """
         self._headless = headless
 
-    async def run_batch(self, batch: Batch, video_path: str = "") -> BatchResults:
+    def run_batch_sync(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
+        return self._run_batch(batch, is_healthy=is_healthy, video_path=video_path)
+
+    async def run_batch(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
         """
         Run the provided batch by simulating each contained environment.
 
         :param batch: The batch to run.
+        :param is_healthy: function that evaluates whether the robot is in a "healthy state". (If not the simulation should be terminated).
         :returns: List of simulation states in ascending order of time.
         """
+        return self._run_batch(batch, is_healthy=is_healthy, video_path=video_path)
+
+    def _run_batch(
+        self, batch: Batch, is_healthy: Optional[Callable] = None, video_path: str = ""
+    ) -> BatchResults:
         logging.info("Starting simulation batch with mujoco.")
         video_fps = 24
-
-        control_step = 1 / batch.control_frequency
+        control_step = 1 / batch.control_frequency * 2
         sample_step = 1 / batch.sampling_frequency
         video_step = 1 / video_fps
 
         results = BatchResults([EnvironmentResults([]) for _ in batch.environments])
 
         for env_index, env_descr in enumerate(batch.environments):
-            logging.info(f"Environment {env_index} (of {len(batch.environments)})")
-
             xml_string = self._make_mjcf(env_descr)
             model = mujoco.MjModel.from_xml_string(xml_string)
 
-            # TODO initial dof state
             data = mujoco.MjData(model)
+
+            # set initial dof state
+            LocalRunner._set_initial_hinge_states(
+                data, model, noise_angles=0.02, noise_vels=0.02
+            )
 
             initial_targets = [
                 dof_state
@@ -96,7 +111,8 @@ class LocalRunner(Runner):
                 if video_path:
                     # viewer._render_every_frame = False  # save a lot of time
                     # http://tsaith.github.io/combine-images-into-a-video-with-python-3-and-opencv-3.html
-                    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+                    # https://stackoverflow.com/a/55987868
+                    fourcc = cv2.VideoWriter_fourcc(*"VP80")  # "mp4v" "H264" "avc1"
                     vid = cv2.VideoWriter(
                         video_path,
                         fourcc,
@@ -110,19 +126,55 @@ class LocalRunner(Runner):
 
             # sample initial state
             results.environment_results[env_index].environment_states.append(
-                EnvironmentState(0.0, self._get_actor_states(env_descr, data, model))
+                EnvironmentState(
+                    0.0, [], [], self._get_actor_states(env_descr, data, model)
+                )
             )
 
+            actions = []
+            action_diffs = []
+            last_action = None
             while (time := data.time) < batch.simulation_time:
                 # do control if it is time
                 if time >= last_control_time + control_step:
                     last_control_time = math.floor(time / control_step) * control_step
                     control = ActorControl()
-                    qpos = data.qpos
-                    qvel = data.qvel
-                    # TODO: use propioception (qpos, qvel) for control
-                    batch.control(env_index, control_step, control)
+
+                    # get actor state so we can read joint angles/velocities
+                    actor_state = self._get_actor_states(
+                        env_descr,
+                        data,
+                        model,
+                        ground_contacts=False,
+                    )[0]
+
+                    logging.debug(f"actor height = {actor_state.position.z:0.3f}")
+                    # TODO: the exact time at which we terminate isn't tracked exactly
+                    #   (whatever last sample time was is taken to be the duration)
+                    if is_healthy is not None:
+                        if not is_healthy(actor_state):
+                            # end the simulation
+                            logging.info(
+                                f"stopping sim at time {time:0.3f} due to unhealthy actor!"
+                            )
+                            break
+
+                    batch.control(
+                        env_index,
+                        actor_state,
+                        control_step,
+                        control,
+                    )
                     actor_targets = control._dof_targets
+                    action = control._dof_targets[0][1]
+                    actions.append(action)
+                    if last_action is None:
+                        action_diffs.append(action)
+                    else:
+                        action_diffs.append(
+                            [action[i] - last_action[i] for i in range(len(action))]
+                        )
+                    last_action = action
                     actor_targets.sort(key=lambda t: t[0])
                     targets = [
                         target
@@ -135,11 +187,21 @@ class LocalRunner(Runner):
                 # sample state if it is time
                 if time >= last_sample_time + sample_step:
                     last_sample_time = int(time / sample_step) * sample_step
-                    results.environment_results[env_index].environment_states.append(
-                        EnvironmentState(
-                            time, self._get_actor_states(env_descr, data, model)
-                        )
+                    env_state = EnvironmentState(
+                        time,
+                        actions,
+                        action_diffs,
+                        self._get_actor_states(
+                            env_descr,
+                            data,
+                            model,
+                        ),
                     )
+                    results.environment_results[env_index].environment_states.append(
+                        env_state
+                    )
+                    actions = []
+                    action_diffs = []
 
                 # step simulation
                 mujoco.mj_step(model, data)
@@ -181,10 +243,13 @@ class LocalRunner(Runner):
 
             # sample one final time
             results.environment_results[env_index].environment_states.append(
-                EnvironmentState(time, self._get_actor_states(env_descr, data, model))
+                EnvironmentState(
+                    time,
+                    actions,
+                    action_diffs,
+                    self._get_actor_states(env_descr, data, model),
+                )
             )
-
-        logging.info("Finished batch.")
 
         return results
 
@@ -228,26 +293,44 @@ class LocalRunner(Runner):
             # mujoco can only save to a file, not directly to string,
             # so we create a temporary file.
             botfile = tempfile.NamedTemporaryFile(
-                mode="r+", delete=False, suffix=".urdf"
+                mode="r+", delete=True, suffix=".urdf"
             )
             mujoco.mj_saveLastXML(botfile.name, model)
             robot = mjcf.from_file(botfile)
             botfile.close()
 
+            force_range = 4.0
             for joint in posed_actor.actor.joints:
+                # robot.actuator.add(
+                #     "intvelocity",
+                #     actrange="-1.57 1.57",
+                #     kp=5.0,
+                #     forcerange=f"{-force_range} {force_range}",
+                #     joint=robot.find(namespace="joint", identifier=joint.name),
+                # )
+                robot.find(namespace="joint", identifier=joint.name).armature = "0.05"
+                # robot.find(namespace="joint", identifier=joint.name).damping = "0.005"
                 robot.actuator.add(
                     "position",
-                    kp=5.0,
+                    kp=100.0,
+                    # kp=5.0,
+                    # kp=0.2,
+                    ctrlrange="-1.0 1.0",
+                    forcerange=f"{-force_range} {force_range}",
                     joint=robot.find(
                         namespace="joint",
                         identifier=joint.name,
                     ),
                 )
-                robot.actuator.add(
-                    "velocity",
-                    kv=0.05,
-                    joint=robot.find(namespace="joint", identifier=joint.name),
-                )
+                # robot.actuator.add(
+                #     "velocity",
+                #     kv=0.05,
+                #     # kv=0.4,
+                #     # kv=0.05,
+                #     ctrlrange="-1.0 1.0",
+                #     forcerange=f"{-force_range} {force_range}",
+                #     joint=robot.find(namespace="joint", identifier=joint.name),
+                # )
 
             attachment_frame = env_mjcf.attach(robot)
             attachment_frame.add("freejoint")
@@ -272,15 +355,23 @@ class LocalRunner(Runner):
 
     @classmethod
     def _get_actor_states(
-        cls, env_descr: Environment, data: mujoco.MjData, model: mujoco.MjModel
+        cls,
+        env_descr: Environment,
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        ground_contacts: bool = True,
     ) -> List[ActorState]:
         return [
-            cls._get_actor_state(i, data, model) for i in range(len(env_descr.actors))
+            cls._get_actor_state(i, data, model, ground_contacts)
+            for i in range(len(env_descr.actors))
         ]
 
     @staticmethod
     def _get_actor_state(
-        robot_index: int, data: mujoco.MjData, model: mujoco.MjModel
+        robot_index: int,
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        ground_contacts: bool = True,  # whether to track ground contacts (could be slow)
     ) -> ActorState:
         robotname = f"robot_{robot_index}/"  # the slash is added by dm_control. ugly but deal with it
         bodyid = mujoco.mj_name2id(
@@ -296,33 +387,103 @@ class LocalRunner(Runner):
         position = Vector3([n for n in data.qpos[qindex : qindex + 3]])
         orientation = Quaternion([n for n in data.qpos[qindex + 3 : qindex + 3 + 4]])
 
-        contacts = data.contact
-        # https://mujoco.readthedocs.io/en/latest/overview.html#floating-objects
-        groundid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "ground")
+        geomids: Optional[Set[int]] = None
+        numgeoms: Optional[int] = None
+        if ground_contacts:
+            contacts = data.contact
+            # https://mujoco.readthedocs.io/en/latest/overview.html#floating-objects
+            groundid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_GEOM, "ground")
 
-        geomids = set()  # ids of geometries in contact with ground
-        for c in contacts:
-            if groundid in [c.geom1, c.geom2] and c.geom1 != c.geom2:
-                otherid = c.geom1 if c.geom2 == groundid else c.geom2
-                othername = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, otherid)
-                # logging.debug(f"found ground collision with geom ID: {otherid} (name '{othername}')")
-                if not othername.startswith(robotname):
-                    continue  # ensure contact is with part of the robot (e.g. not obstacle and ground)
-                geomids.add(otherid)
+            geomids = set()  # ids of geometries in contact with ground
+            for c in contacts:
+                if groundid in [c.geom1, c.geom2] and c.geom1 != c.geom2:
+                    otherid = c.geom1 if c.geom2 == groundid else c.geom2
+                    othername = mujoco.mj_id2name(
+                        model, mujoco.mjtObj.mjOBJ_GEOM, otherid
+                    )
+                    # logging.debug(f"found ground collision with geom ID: {otherid} (name '{othername}')")
+                    if not othername.startswith(robotname):
+                        continue  # ensure contact is with part of the robot (e.g. not obstacle and ground)
+                    geomids.add(otherid)
 
-        # if len(geomids) > 0:
-        #    logging.debug(f"found {len(geomids)} total geoms in contact with ground")
-        #    names = list([mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, curid) for curid in geomids])
-        #    logging.debug(names)
+            # if len(geomids) > 0:
+            #    logging.debug(f"found {len(geomids)} total geoms in contact with ground")
+            #    names = list([mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_GEOM, curid) for curid in geomids])
+            #    logging.debug(names)
+
+        # track states of hinge joints
+        #   for reference see mjmodel.h and simulate.cc:makejoint()
+        jnt_hinge_indices = [
+            i
+            for i, val in enumerate(model.jnt_type)
+            if val == mujoco.mjtJoint.mjJNT_HINGE
+        ]
+        hinge_angles = [data.qpos[model.jnt_qposadr[i]] for i in jnt_hinge_indices]
+        hinge_vels = [data.qvel[model.jnt_dofadr[i]] for i in jnt_hinge_indices]
 
         return ActorState(
-            position, orientation, geomids, model.ngeom, data.qpos, data.qvel
+            position,
+            orientation,
+            geomids,
+            model.ngeom,
+            hinge_angles,
+            hinge_vels,
         )
 
     @staticmethod
     def _set_dof_targets(data: mujoco.MjData, targets: List[float]) -> None:
-        if len(targets) * 2 != len(data.ctrl):
-            raise RuntimeError("Need to set a target for every dof")
-        for i, target in enumerate(targets):
-            data.ctrl[2 * i] = target
-            data.ctrl[2 * i + 1] = 0
+        if len(targets) == len(data.ctrl):
+            for i, target in enumerate(targets):
+                data.ctrl[i] = target
+        elif len(targets) * 2 != len(data.ctrl):
+            raise RuntimeError(
+                "Number of target dofs doesn't match the number of actuators"
+            )
+        else:
+            for i, target in enumerate(targets):
+                data.ctrl[2 * i] = target
+                data.ctrl[2 * i + 1] = 0
+
+    @staticmethod
+    def _set_initial_hinge_states(
+        data: mujoco.MjData,
+        model: mujoco.MjModel,
+        angles: Optional[List[float]] = None,
+        vels: Optional[List[float]] = None,
+        noise_angles: float = 1e-2,
+        noise_vels: float = 1e-2,
+    ) -> None:
+        """
+        Set initial angles and velocities of joints.
+        Not the control targets but the angles/velocities themselves).
+        If angles and vels aren't provided then they're computed randomly (according to magnitude of noise_angles and noise_vels)
+
+        Inspired loosely by https://github.com/Farama-Foundation/Gymnasium/blob/a10bcd858ee2175db61889d871d51cfee1ef19a8/gymnasium/envs/mujoco/humanoid_v4.py#L361
+        ^which defaults to uniform random  in [-1e-2, 1e-2]
+        """
+        jnt_hinge_indices = [
+            i
+            for i, val in enumerate(model.jnt_type)
+            if val == mujoco.mjtJoint.mjJNT_HINGE
+        ]
+        num_hinges = len(jnt_hinge_indices)
+
+        if angles is None:
+            angles = np.random.uniform(
+                low=-abs(noise_angles), high=abs(noise_angles), size=num_hinges
+            )
+        if vels is None:
+            vels = np.random.uniform(
+                low=-abs(noise_vels), high=abs(noise_vels), size=num_hinges
+            )
+
+        if len(angles) != len(vels) or num_hinges != len(angles):
+            raise RuntimeError(
+                f"Number of target angles and velcoities doesn't match the number of actuators ({len(angles)} vs {len(vels)} vs {num_hinges})"
+            )
+
+        # set initial angles and dof (velocities)
+        for i in range(num_hinges):
+            jnt_idx = jnt_hinge_indices[i]
+            data.qpos[model.jnt_qposadr[jnt_idx]] = angles[i]
+            data.qvel[model.jnt_dofadr[jnt_idx]] = angles[i]

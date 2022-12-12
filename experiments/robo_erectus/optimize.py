@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
 """Setup and running of the optimize modular program."""
-
 import argparse
 import glob
 import logging
 import subprocess
+import numpy as np
 from random import Random
 
-import multineat
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
 
 import wandb
-from genotype import random as random_genotype
-from optimizer import Optimizer
+
+from optimizer import Optimizer as EaOptimzer
+from optimizers.cma_optimizer import CmaEsOptimizer
+from optimizers.ars_optimizer import ArsOptimizer
 from utilities import *
+from morphologies.morphology import MORPHOLOGIES
+from genotypes.linear_controller_genotype import LinearControllerGenotype
+
+SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
+ERECTUS_YAML = os.path.join(SCRIPT_DIR, "morphologies/erectus.yaml")
 
 
 async def main() -> None:
@@ -25,31 +31,64 @@ async def main() -> None:
     parser.add_argument("-r", "--resume", action="store_true")
     parser.add_argument("--rng_seed", type=int, default=420)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
-    parser.add_argument("-t", "--simulation_time", type=int, default=30)
-    parser.add_argument("--sampling_frequency", type=int, default=10)
-    parser.add_argument("--control_frequency", type=int, default=10)
+    parser.add_argument("-t", "--simulation_time", type=int, default=10)
+    parser.add_argument("--sampling_frequency", type=float, default=10)
+    parser.add_argument("--control_frequency", type=float, default=60)
     parser.add_argument("-p", "--population_size", type=int, default=10)
-    parser.add_argument("--offspring_size", type=int, default=10)
+    parser.add_argument("-o", "--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
+    parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
+    parser.add_argument("-s", "--samples", type=int, default=1)
     parser.add_argument(
-        "-b",
-        "--save_best",
-        action="store_true",
-        help="output the best robots to disk",
+        "-m",
+        "--morphology",
+        type=str,
+        default="erectus",
+        help="name of morphology to use (e.g. 'erecuts' | 'spider')",
     )
     parser.add_argument(
-        "-f", "--fitness_function", default="displacement_height_groundcontact"
+        "-f",
+        "--fitness_function",
+        # default="with_control_cost",
+        # default="health_with_control_cost",
+        default="clipped_health",
+        # default="displacement_only",
+    )  # "displacement_height_groundcontact"
+    parser.add_argument(
+        "--skip_best",
+        action="store_true",
+        help="don't output the best robots to disk",
+    )
+    parser.add_argument(
+        "--best_dur",
+        type=int,
+        default=30,
+        help="duration for rerun_best.py",
     )
     parser.add_argument(
         "--gui",
         action="store_true",
         help="run with non-headless mode (view sim window)",
     )
+    parser.add_argument(
+        "-cma",
+        "--use_cma",
+        action="store_true",
+        help="use CMA-ES as optimizer of controller",
+    )
+    parser.add_argument(
+        "-ars",
+        "--use_ars",
+        action="store_true",
+        help="use ARS as optimizer of controller",
+    )
     args = parser.parse_args()
 
+    body_name = args.morphology
+    assert body_name in MORPHOLOGIES, "morphology must exist"
     ensure_dirs(DATABASE_PATH)
 
     # https://docs.wandb.ai/guides/track/advanced/resuming#resuming-guidance
@@ -92,45 +131,72 @@ async def main() -> None:
     rng = Random()
     rng.seed(args.rng_seed)
 
-    # database
-    database = open_async_database_sqlite(database_dir)
-
     # process id generator
     process_id_gen = ProcessIdGen()
     process_id = process_id_gen.gen()
 
-    # multineat innovation databases
-    innov_db_body = multineat.InnovationDatabase()
-    innov_db_brain = multineat.InnovationDatabase()
+    if args.use_cma:
+        Optimizer = CmaEsOptimizer
+        logging.info(
+            "CMA-ES start from an original individual, population size will be ignored."
+        )
+        args.population_size = 1
 
+    elif args.use_ars:
+        Optimizer = ArsOptimizer
+        logging.info(
+            "Ars start from an original individual, population size will be stay at 1"
+        )
+        args.population_size = 1
+        args.offspring_size = 1
+    else:
+        Optimizer = EaOptimzer
+
+    logging.info(f"using body_name: {body_name}")
     initial_population = [
-        random_genotype(innov_db_body, innov_db_brain, rng, args.num_initial_mutations)
-        for _ in range(args.population_size)
+        LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
     ]
 
+    if args.use_cma:
+        logging.info("CMA-ES self-adapt offspring size. (if not given)")
+        args.population_size = 1
+        if args.offspring_size is None:
+            N = initial_population[0].genotype.shape[0]
+            # self-adapted new generation size used in cma-es
+            args.offspring_size = int(4 + 3 * np.log(N))
+
+    # this if statement must be used after 'if args.use_cma:'
+    if args.offspring_size is None:
+        args.offspring_size = args.population_size
+
+    # database
+    database = open_async_database_sqlite(database_dir)
     maybe_optimizer = await Optimizer.from_database(
         database=database,
         process_id=process_id,
-        innov_db_body=innov_db_body,
-        innov_db_brain=innov_db_brain,
+        innov_db_body=None,
+        innov_db_brain=None,
         rng=rng,
         process_id_gen=process_id_gen,
         headless=not args.gui,
     )
     if maybe_optimizer is not None:
-        logging.info("Initialized with existing database...")
+        logging.info(f"Initialized with existing database: '{database_dir}'")
         # TODO: if run is already finished, don't log it to wandb
         optimizer = maybe_optimizer
+        optimizer._num_generations = (
+            args.num_generations
+        )  # in case more generations are desired :)
     else:
-        logging.info("Initialized a new experiment...")
+        logging.info(f"Initialized a new experiment: '{database_dir}'")
         optimizer = await Optimizer.new(
             database=database,
             process_id=process_id,
             initial_population=initial_population,
             rng=rng,
             process_id_gen=process_id_gen,
-            innov_db_body=innov_db_body,
-            innov_db_brain=innov_db_brain,
+            innov_db_body=None,
+            innov_db_brain=None,
             simulation_time=args.simulation_time,
             sampling_frequency=args.sampling_frequency,
             control_frequency=args.control_frequency,
@@ -138,22 +204,25 @@ async def main() -> None:
             offspring_size=args.offspring_size,
             fitness_function=args.fitness_function,
             headless=not args.gui,
+            body_name=body_name,
         )
 
     logging.info("Starting optimization process...")
 
+    optimizer.n_jobs = args.n_jobs
+    optimizer.samples = args.samples
     await optimizer.run()
 
     logging.info("Finished optimizing.")
 
-    if args.save_best:
+    if not args.skip_best:
         logging.info("\n\nrunning rerun_best.py")
-        call_rerun_best(run_name=args.run_name, count=4)
+        call_rerun_best(run_name=args.run_name, count=4, dur_sec=args.best_dur)
         if args.wandb:
-            # now save files wandb if needed
+            # now save files to wandb if needed
             analysis_dir = os.path.join(database_dir, "analysis")
             UPLOAD_GLOBS = [
-                os.path.join(analysis_dir, "*.mp4"),
+                os.path.join(analysis_dir, "*.webm"),
                 os.path.join(analysis_dir, "*.yml"),
             ]
             fnames = []
@@ -171,7 +240,7 @@ async def main() -> None:
 
 
 def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
-    """Output mp4 and xml files of best robots."""
+    """Output video and xml files of best robots."""
     SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
     RERUN_SCRIPT = os.path.join(SCRIPT_DIR, "rerun_best.py")
 
@@ -190,7 +259,7 @@ def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
     logging.debug(" ".join(cmd))
     res = subprocess.run(cmd, stdout=subprocess.PIPE)
     if res.returncode != 0:
-        logging.error(f"rerun_best.py failed with code {res.return_code}")
+        logging.error(f"rerun_best.py failed with code {res.returncode}")
 
 
 if __name__ == "__main__":

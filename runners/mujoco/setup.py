@@ -19,10 +19,11 @@ setup(
     },
     install_requires=[
         f"revolve2-core @ file://{os.path.join(revolve2_path, 'core')}",
-        "mujoco>=2.2.0",
+        "mujoco==2.3.0",
         "mujoco-python-viewer @ git+https://github.com/rohanpsingh/mujoco-python-viewer@d61433f3991294da455751659925839452b9597e",
-        "dm-control>=1.0.3",
+        "dm-control==1.0.8",
         "opencv-python>=4.6.0.66",
+        "joblib>=1.2.0",
     ],
     extras_require={"dev": []},
     zip_safe=False,
