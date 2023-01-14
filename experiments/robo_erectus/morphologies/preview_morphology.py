@@ -1,89 +1,37 @@
 """Visualize and run a modular robot using Mujoco."""
-
-import math
 import os
-from random import Random
+import sys
 
-from pyrr import Quaternion, Vector3
-from revolve2.actor_controller import ActorController
-from revolve2.core.modular_robot import ActiveHinge, Body, Brick, ModularRobot
-from revolve2.core.modular_robot.brains import BrainCpgNetworkNeighbourRandom
-from revolve2.core.physics.running import ActorControl, Batch, Environment, PosedActor
-from revolve2.runners.mujoco import LocalRunner
+sys.path.append(os.path.join(os.getcwd(), "experiments/robo_erectus"))
 
-from morphology import FixedBodyCreator
+from genotypes.linear_controller_genotype import LinearControllerGenotype
+from revolve2.runners.mujoco import ModularRobotRerunner
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 
-
-class Simulator:
-    """
-    Simulator setup.
-
-    Simulates using Mujoco.
-    Defines a control function that steps the controller and applies the degrees of freedom the controller provides.
-    """
-
-    _controller: ActorController
-
-    async def simulate(self, robot: ModularRobot, control_frequency: float) -> None:
-        """
-        Simulate a robot.
-
-        :param robot: The robot to simulate.
-        :param control_frequency: Control frequency for the simulator.
-        """
-        batch = Batch(
-            simulation_time=1000000,
-            sampling_frequency=0.0001,
-            control_frequency=control_frequency,
-            control=self._control,
-        )
-
-        actor, self._controller = robot.make_actor_and_controller()
-        bounding_box = actor.calc_aabb()
-
-        env = Environment()
-        env.actors.append(
-            PosedActor(
-                actor,
-                Vector3(
-                    [
-                        0.0,
-                        0.0,
-                        bounding_box.size.z / 2.0 - bounding_box.offset.z,
-                    ]
-                ),
-                Quaternion(),
-                [0.0 for _ in self._controller.get_dof_targets()],
-            )
-        )
-        batch.environments.append(env)
-
-        runner = LocalRunner()
-        await runner.run_batch(batch)
-
-    def _control(
-        self, environment_index: int, dt: float, control: ActorControl
-    ) -> None:
-        self._controller.step(dt)
-        control.set_dof_targets(0, self._controller.get_dof_targets())
+from utilities import (
+    actor_get_default_pose,
+    actor_get_standing_pose,
+)
 
 
 async def main() -> None:
     """Run the simulation."""
-    rng = Random()
-    rng.seed(5)
+    body_name = "humanoid"  # register in morphology.py/MORPHOLOGIES before using it
+    genotype = LinearControllerGenotype.random(body_name)
 
-    path = os.path.join(SCRIPT_DIR, "erectus.yaml")
-    erectus = FixedBodyCreator(path)
-    body = erectus.body
+    rerunner = ModularRobotRerunner()
 
-    brain = BrainCpgNetworkNeighbourRandom(rng)
-    robot = ModularRobot(body, brain)
-
-    sim = Simulator()
-    await sim.simulate(robot, 60)
+    pose_getter = actor_get_standing_pose  # or actor_get_default_pose
+    actor, controller = genotype.develop()
+    await rerunner.rerun(
+        actor,
+        controller,
+        60,
+        simulation_time=60,
+        get_pose=pose_getter,
+        video_path="",
+    )
 
 
 if __name__ == "__main__":

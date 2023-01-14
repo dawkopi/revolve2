@@ -1,0 +1,102 @@
+---
+id: dog
+body:
+  type: Core
+  children:
+    0: # head
+      type: ActiveHinge
+      orientation: 0
+      children:
+        0:
+          type: Brick
+          
+    1: # fron right leg 
+      type: ActiveHinge
+      orientation: 90
+      children:
+        0:
+          type: Brick
+          children:
+            1:
+              type: ActiveHinge
+              orientation: 0
+              children:
+                0:
+                  type: ActiveHinge
+                  orientation: 90
+                  children:
+                    0:
+                      type: Brick
+    3: # fron left leg 
+      type: ActiveHinge
+      orientation: 90
+      children:
+        0:
+          type: Brick
+          children:
+            1:
+              type: ActiveHinge
+              orientation: 0
+              children:
+                0:
+                  type: ActiveHinge
+                  orientation: 90
+                  children:
+                    0:
+                      type: Brick
+
+    2: # back
+      type: ActiveHinge
+      orientation: 90
+      children:
+        0:
+          type: Brick
+          children:
+            0:
+              type: ActiveHinge
+              orientation: 90
+              children:
+                0:
+                  type: Brick
+                  children:
+                    1: # rear right leg 
+                      type: ActiveHinge
+                      orientation: 90
+                      children:
+                        0:
+                          type: Brick
+                          children:
+                            2:
+                              type: ActiveHinge
+                              orientation: 90
+                              children:
+                                0:
+                                  type: ActiveHinge
+                                  orientation: 90
+                                  children:
+                                    0:
+                                      type: Brick
+                    2: # rear left leg
+                      type: ActiveHinge
+                      orientation: 90
+                      children:
+                        0:
+                          type: Brick
+                          children:
+                            2:
+                              type: ActiveHinge
+                              orientation: 0
+                              children:
+                                0:
+                                  type: ActiveHinge
+                                  orientation: 90
+                                  children:
+                                    0:
+                                      type: Brick
+                    0: # tail
+                      type: ActiveHinge
+                      orientation: 0
+                      children:
+                        0:
+                          type: ActiveHinge
+                          orientation: 90

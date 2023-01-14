@@ -5,6 +5,7 @@ body:
   children    :
     2: # for Core module, 0-front, 1-right, 2-back, 3-left
       type        : ActiveHinge
+      orientation: 90
       children    :
         0: # for ActiveHinge, 0-attachment
           type        : ActiveHinge
@@ -14,9 +15,11 @@ body:
               children    :
                 2: # for Brick, 0-front, 1-right, 2-left
                   type        : ActiveHinge
+                  orientation: 90
                   children    :
                     0:
                       type        : ActiveHinge
+                      orientation: 90
                       children    :
                         0:
                           type        : Brick
@@ -29,6 +32,7 @@ body:
                                   children    :
                                     0:
                                       type        : ActiveHinge
+                                      orientation: 90
                                       children    :
                                         0:
                                           type        : Brick
@@ -37,9 +41,11 @@ body:
                                               type        : Brick
                 1: # for Brick, 0-front, 1-right, 2-left
                   type        : ActiveHinge
+                  orientation: 90
                   children    :
                     0:
                       type        : ActiveHinge
+                      orientation: 90
                       children    :
                         0:
                           type        : Brick
@@ -52,6 +58,7 @@ body:
                                   children    :
                                     0:
                                       type        : ActiveHinge
+                                      orientation: 90
                                       children    :
                                         0:
                                           type        : Brick

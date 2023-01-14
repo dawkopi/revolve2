@@ -71,32 +71,24 @@ class FixedBodyCreator:
         Brick
         """
         mod_type = yaml_object["type"]
+
+        try:
+            rotation = yaml_object["orientation"] / 180 * math.pi
+        except KeyError:
+            rotation = 0.0
+
         if mod_type == "CoreComponent" or mod_type == "Core":
-            module = Core(0.0)
+            module = Core(rotation)
         elif mod_type == "ActiveHinge":
-            module = ActiveHinge(math.pi / 2.0)
+            module = ActiveHinge(rotation)
         elif mod_type == "Brick":
-            module = Brick(0.0)
+            module = Brick(rotation)
         else:
             raise NotImplementedError(
                 '"{}" module not yet implemented'.format(mod_type)
             )
 
         # module.id = yaml_object['id']
-
-        try:
-            module.orientation = yaml_object["orientation"]
-        except KeyError:
-            module.orientation = 0
-
-        try:
-            module.rgb = (
-                yaml_object["params"]["red"],
-                yaml_object["params"]["green"],
-                yaml_object["params"]["blue"],
-            )
-        except KeyError:
-            pass
 
         if "children" in yaml_object:
             for parent_slot in yaml_object["children"]:
@@ -129,6 +121,14 @@ MORPHOLOGIES = {
     "spider": {
         "min_z": 0.1,
         "get_pose": actor_get_default_pose,
+    },
+    "dog": {
+        "min_z": 0.1,
+        "get_pose": actor_get_default_pose,
+    },
+    "humanoid": {
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
     },
 }
 
