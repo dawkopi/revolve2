@@ -61,15 +61,15 @@ body:
                           orientation: 90
                           children:
                             1:
-                              type: ActiveHinge
+                              type: Brick
                               orientation: 0
                               children:
                                 0:
-                                  type: Brick
+                                  type: ActiveHinge
+                                  orientation: 0
                                   children:
                                     0:
                                       type: Brick
-                                      orientation: 0
                     2: # right leg
                       type: ActiveHinge
                       orientation: 90
@@ -79,12 +79,12 @@ body:
                           orientation: -90
                           children:
                             1:
-                              type: ActiveHinge
+                              type: Brick
                               orientation: 0
                               children:
                                 0:
-                                  type: Brick
+                                  type: ActiveHinge
+                                  orientation: 0
                                   children:
                                     0:
                                       type: Brick
-                                      orientation: 0

@@ -8,21 +8,7 @@ body:
       orientation: 0
       children:
         0:
-          type: Brick
-    1: # right arm
-      type: ActiveHinge
-      orientation: 90
-      children:
-        0:
-          type: Brick
-          orientation: 90
-          children:
-            2:
-              type: ActiveHinge
-              orientation: 0
-              children:
-                0:
-                  type: Brick          
+          type: Brick        
     3: # left arm
       type: ActiveHinge
       orientation: 90

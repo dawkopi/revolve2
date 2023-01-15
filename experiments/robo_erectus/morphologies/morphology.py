@@ -130,6 +130,30 @@ MORPHOLOGIES = {
         "min_z": 0.1,
         "get_pose": actor_get_standing_pose,
     },
+    "humanoid_B": {  # shorter limbs
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_C": {  # rotated body
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_D": {  # asymmetric
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_E": {  # longer thigh, shorter calf
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_F": {  # longer legs
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_G": {  # different angle of joins
+        "min_z": 0.1,
+        "get_pose": actor_get_standing_pose,
+    },
 }
 
 for key, m in MORPHOLOGIES.items():
