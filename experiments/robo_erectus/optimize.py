@@ -152,6 +152,8 @@ async def main() -> None:
     else:
         Optimizer = EaOptimzer
 
+    logging.info(f"using optimizer: {Optimizer}")
+
     logging.info(f"using body_name: {body_name}")
     initial_population = [
         LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
@@ -214,6 +216,7 @@ async def main() -> None:
     await optimizer.run()
 
     logging.info("Finished optimizing.")
+    logging.info(f"database_dir = '{database_dir}'\n")
 
     if not args.skip_best:
         logging.info("\n\nrunning rerun_best.py")

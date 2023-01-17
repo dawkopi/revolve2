@@ -551,7 +551,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
             population, fitnesses, num_parent_groups
         )
         assert type(parent_selections) == list
-        assert len(parent_selections) == num_parent_groups
+        assert len(parent_selections) == num_parent_groups, f"{len(parent_selections)} should == {num_parent_groups}"
         assert all(type(s) == list for s in parent_selections)
         assert all(
             [

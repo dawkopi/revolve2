@@ -123,27 +123,27 @@ MORPHOLOGIES = {
         "get_pose": actor_get_default_pose,
     },
     "dog": {
-        "min_z": 0.1,
+        "min_z": 0.22,
         "get_pose": actor_get_default_pose,
     },
     "humanoid": {
-        "min_z": 0.1,
+        "min_z": 0.45,
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_B": {  # shorter limbs
-        "min_z": 0.1,
+        "min_z": 0.34,
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_C": {  # rotated body
-        "min_z": 0.1,
+        "min_z": 0.45,
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_D": {  # asymmetric
-        "min_z": 0.1,
+        "min_z": 0.45,
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_E": {  # longer thigh, shorter calf
-        "min_z": 0.1,
+        "min_z": 0.45,
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_F": {  # longer legs
@@ -151,7 +151,7 @@ MORPHOLOGIES = {
         "get_pose": actor_get_standing_pose,
     },
     "humanoid_G": {  # different angle of joins
-        "min_z": 0.1,
+        "min_z": 0.5,
         "get_pose": actor_get_standing_pose,
     },
 }
@@ -189,7 +189,18 @@ if __name__ == "__main__":
         default="erectus",
         help="name of morphology to use (e.g. 'erecuts' | 'spider')",
     )
+    parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="list all morphologies",
+    )
     args = parser.parse_args()
+
+    if args.list:
+        print("list of all morphologies:")
+        print("\n".join(MORPHOLOGIES.keys()))
+        print()
 
     body_name = args.morphology
     assert body_name in MORPHOLOGIES, "morphology must exist"
@@ -215,3 +226,6 @@ if __name__ == "__main__":
     with open(outpath, "w") as f:
         f.write(xml_string)
     print(f"wrote '{body_name}' body to: '{outpath}'")
+
+    with open(os.path.join(SCRIPT_DIR, f"cur.xml"), "w") as f:
+        f.write(xml_string)
