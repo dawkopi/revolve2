@@ -154,6 +154,38 @@ MORPHOLOGIES = {
         "min_z": 0.5,
         "get_pose": actor_get_standing_pose,
     },
+    "erectus_000": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_001": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_010": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_011": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_100": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_101": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_110": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
+    "erectus_111": {
+        "min_z": 0.3,
+        "get_pose": actor_get_standing_pose,
+    },
 }
 
 for key, m in MORPHOLOGIES.items():
