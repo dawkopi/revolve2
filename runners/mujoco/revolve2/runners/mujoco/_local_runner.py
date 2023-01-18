@@ -187,6 +187,20 @@ class LocalRunner(Runner):
                 # sample state if it is time
                 if time >= last_sample_time + sample_step:
                     last_sample_time = int(time / sample_step) * sample_step
+                    # for experimenting with proper min_z param for morphology
+                    """
+                    actor_state = (
+                       self._get_actor_states(
+                           env_descr,
+                           data,
+                           model,
+                       ),
+                    )
+                    print(f"actor height = {actor_state[0][0].position[2]:.3f}")
+                    import pdb
+
+                    # pdb.set_trace()
+                    """
                     env_state = EnvironmentState(
                         time,
                         actions,
@@ -299,7 +313,7 @@ class LocalRunner(Runner):
             robot = mjcf.from_file(botfile)
             botfile.close()
 
-            force_range = 4.0
+            force_range = 4.0  # limits force of each actuator (preventing jumping)
             for joint in posed_actor.actor.joints:
                 # robot.actuator.add(
                 #     "intvelocity",
@@ -308,11 +322,14 @@ class LocalRunner(Runner):
                 #     forcerange=f"{-force_range} {force_range}",
                 #     joint=robot.find(namespace="joint", identifier=joint.name),
                 # )
+
+                # note that the armature is related to "inertia"
                 robot.find(namespace="joint", identifier=joint.name).armature = "0.05"
+                # damping is kinda like friction in the rotation
                 # robot.find(namespace="joint", identifier=joint.name).damping = "0.005"
                 robot.actuator.add(
                     "position",
-                    kp=100.0,
+                    kp=100.0,  # this is the p value for PID
                     # kp=5.0,
                     # kp=0.2,
                     ctrlrange="-1.0 1.0",
@@ -324,7 +341,7 @@ class LocalRunner(Runner):
                 )
                 # robot.actuator.add(
                 #     "velocity",
-                #     kv=0.05,
+                #     kv=0.05, # this is the v value for PID
                 #     # kv=0.4,
                 #     # kv=0.05,
                 #     ctrlrange="-1.0 1.0",

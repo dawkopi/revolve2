@@ -41,7 +41,7 @@ async def main() -> None:
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
-    parser.add_argument("-s", "--samples", type=int, default=1)
+    parser.add_argument("-s", "--samples", type=int, default=4)
     parser.add_argument(
         "-m",
         "--morphology",

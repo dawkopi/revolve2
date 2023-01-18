@@ -19,8 +19,8 @@ class ArsOptimizer(Optimizer):
         logging.info(f"Initalizing ARS...")
 
         params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resamples
-            "n_directions": 64,  # evolve direction
-            "deltas_used": 64,
+            "n_directions": 64,  # evolve direction (like number of children / 2)
+            "deltas_used": 64,  # like how many survivors
             "step_size": 0.02,  # evolve step size
             "delta_std": 0.03,
             "n_workers": 1,  # number of cpus
@@ -29,8 +29,8 @@ class ArsOptimizer(Optimizer):
             "seed": 237,
             "policy_type": "linear",
             "dir_path": "data",
-            # "filter": "NoFilter",
-            "filter": "MeanStdFilter",
+            "filter": "NoFilter",
+            # "filter": "MeanStdFilter", # Dawid worries about how well this is implemented for us / if its necessary
         }
 
         dir_path = params["dir_path"]
