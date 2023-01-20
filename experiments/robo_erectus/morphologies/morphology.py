@@ -154,6 +154,14 @@ MORPHOLOGIES = {
         "min_z": 0.5,
         "get_pose": actor_get_standing_pose,
     },
+    "humanoid_H": {  # different angle of joins
+        "min_z": 0.5,
+        "get_pose": actor_get_standing_pose,
+    },
+    "humanoid_I": {  # different angle of joins
+        "min_z": 0.5,
+        "get_pose": actor_get_standing_pose,
+    },
     "erectus_000": {
         "min_z": 0.3,
         "get_pose": actor_get_standing_pose,
