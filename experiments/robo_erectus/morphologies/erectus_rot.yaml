@@ -1,0 +1,67 @@
+---
+id: example-erectus
+body:
+  type        : Core
+  children    :
+    2: # for Core module, 0-front, 1-right, 2-back, 3-left
+      type        : ActiveHinge
+      orientation: 90
+      children    :
+        0: # for ActiveHinge, 0-attachment
+          type        : ActiveHinge
+          children    :
+            0:
+              type        : Brick
+              children    :
+                2: # for Brick, 0-front, 1-right, 2-left
+                  type        : ActiveHinge
+                  orientation: 90
+                  children    :
+                    0:
+                      type        : ActiveHinge
+                      orientation: 90
+                      children    :
+                        0:
+                          type        : Brick
+                          children    :
+                            2:
+                              type        : Brick
+                              children    :
+                                0:
+                                  type        : Brick
+                                  children    :
+                                    0:
+                                      type        : ActiveHinge
+                                      orientation: 0
+                                      children    :
+                                        0:
+                                          type        : Brick
+                                          children    :
+                                            0:
+                                              type        : Brick
+                1: # for Brick, 0-front, 1-right, 2-left
+                  type        : ActiveHinge
+                  orientation: 90
+                  children    :
+                    0:
+                      type        : ActiveHinge
+                      orientation: 90
+                      children    :
+                        0:
+                          type        : Brick
+                          children    :
+                            1:
+                              type        : Brick
+                              children    :
+                                0:
+                                  type        : Brick
+                                  children    :
+                                    0:
+                                      type        : ActiveHinge
+                                      orientation: 0
+                                      children    :
+                                        0:
+                                          type        : Brick
+                                          children    :
+                                            0:
+                                              type        : Brick

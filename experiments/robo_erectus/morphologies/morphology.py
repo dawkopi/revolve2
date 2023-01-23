@@ -110,6 +110,10 @@ MORPHOLOGIES = {
         "min_z": 0.4,  # for health check
         "get_pose": actor_get_standing_pose,
     },
+    "erectus_rot": {  # same as erectus but knee rotated to bend in direction a human's would:
+        "min_z": 0.4,  # for health check
+        "get_pose": actor_get_standing_pose,
+    },
     "dangle": {
         "min_z": 0.13,  # for health check
         "get_pose": actor_get_standing_pose,
