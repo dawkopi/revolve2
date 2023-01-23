@@ -34,7 +34,13 @@ async def main() -> None:
     parser.add_argument("-t", "--simulation_time", type=int, default=10)
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
-    parser.add_argument("-p", "--population_size", type=int, default=10)
+    parser.add_argument(
+        "-p",
+        "--population_size",
+        type=int,
+        default=10,
+        help="population size (but if using -ars this sets n_directions instead)",
+    )
     parser.add_argument("-o", "--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
     parser.add_argument("-w", "--wandb", action="store_true")
@@ -135,6 +141,7 @@ async def main() -> None:
     process_id_gen = ProcessIdGen()
     process_id = process_id_gen.gen()
 
+    ars_directions = None
     if args.use_cma:
         Optimizer = CmaEsOptimizer
         logging.info(
@@ -147,6 +154,7 @@ async def main() -> None:
         logging.info(
             "Ars start from an original individual, population size will be stay at 1"
         )
+        ars_directions = int(args.population_size / 2)
         args.population_size = 1
         args.offspring_size = 1
     else:
@@ -213,10 +221,15 @@ async def main() -> None:
 
     optimizer.n_jobs = args.n_jobs
     optimizer.samples = args.samples
+    if isinstance(optimizer, ArsOptimizer):
+        optimizer.n_directions = ars_directions
     await optimizer.run()
 
     logging.info("Finished optimizing.")
     logging.info(f"database_dir = '{database_dir}'\n")
+
+    if args.wandb:
+        upload_db(database_dir)
 
     if not args.skip_best:
         logging.info("\n\nrunning rerun_best.py")
@@ -237,9 +250,23 @@ async def main() -> None:
             logging.info(f"found {len(fnames)} files to upload to wandb...")
             [wandb.save(fname) for fname in fnames]
 
-    if args.wandb:
-        # TODO: upload compressed database!
-        pass
+
+def upload_db(db_dir: str):
+    """Compress db.sqlite -> dq.sqlite.tgz and upload to wandb."""
+    tmp_file = os.path.join(db_dir, "db.sqlite.tgz")
+    cmd = [
+        "tar",
+        "-cvzf",
+        tmp_file,
+        os.path.join(db_dir, "db.sqlite"),
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.PIPE)
+    if res.returncode != 0:
+        logging.error(f"rerun_best.py failed with code {res.returncode}")
+    else:
+        wandb.save(tmp_file)
+        logging.info(f"uploaded compressed db to wandb: '{tmp_file}'")
+        # os.remove(tmp_file) # causes wandb.save() to fail
 
 
 def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):

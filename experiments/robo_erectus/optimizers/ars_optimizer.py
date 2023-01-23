@@ -16,7 +16,6 @@ class ArsOptimizer(Optimizer):
     def init_optimizer(self, param):
         Genotype = param[1]
         evaluate_func = param[2]
-        logging.info(f"Initalizing ARS...")
 
         params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resamples
             "n_directions": 64,  # evolve direction (like number of children / 2)
@@ -32,6 +31,10 @@ class ArsOptimizer(Optimizer):
             "filter": "NoFilter",
             # "filter": "MeanStdFilter", # Dawid worries about how well this is implemented for us / if its necessary
         }
+        if self.n_directions != None:
+            params["n_directions"] = self.n_directions
+            params["deltas_used"] = self.n_directions
+        logging.info(f"Initalizing ARS... (n_directions={params['n_directions']})")
 
         dir_path = params["dir_path"]
 
