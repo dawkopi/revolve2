@@ -19,7 +19,9 @@ class CmaEsOptimizer(Optimizer):
             genotype = individual.genotype.genotype
             body_name = individual.genotype.body_name
             init_x = genotype
-        self._es = cma.CMAEvolutionStrategy(init_x, 0.2, {"popsize": offspring_size})
+        self._es = cma.CMAEvolutionStrategy(
+            init_x, self.sigma0, {"popsize": offspring_size}
+        )
         return body_name
 
     async def evolve_step(

@@ -48,6 +48,7 @@ async def main() -> None:
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument("-s", "--samples", type=int, default=4)
+    parser.add_argument("--sigma0", type=float, default=0.2)
     parser.add_argument(
         "-m",
         "--morphology",
@@ -144,10 +145,10 @@ async def main() -> None:
     ars_directions = None
     if args.use_cma:
         Optimizer = CmaEsOptimizer
-        logging.info(
-            "CMA-ES start from an original individual, population size will be ignored."
-        )
-        args.population_size = 1
+        # logging.info(
+        #     "CMA-ES start from an original individual, population size will be ignored."
+        # )
+        # args.population_size = 1
 
     elif args.use_ars:
         Optimizer = ArsOptimizer
@@ -167,13 +168,13 @@ async def main() -> None:
         LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
     ]
 
-    if args.use_cma:
-        logging.info("CMA-ES self-adapt offspring size. (if not given)")
-        args.population_size = 1
-        if args.offspring_size is None:
-            N = initial_population[0].genotype.shape[0]
-            # self-adapted new generation size used in cma-es
-            args.offspring_size = int(4 + 3 * np.log(N))
+    # if args.use_cma:
+    #     logging.info("CMA-ES self-adapt offspring size. (if not given)")
+    #     args.population_size = 1
+    #     if args.offspring_size is None:
+    #         N = initial_population[0].genotype.shape[0]
+    #         # self-adapted new generation size used in cma-es
+    #         args.offspring_size = int(4 + 3 * np.log(N))
 
     # this if statement must be used after 'if args.use_cma:'
     if args.offspring_size is None:
@@ -223,6 +224,8 @@ async def main() -> None:
     optimizer.samples = args.samples
     if isinstance(optimizer, ArsOptimizer):
         optimizer.n_directions = ars_directions
+    if isinstance(optimizer, CmaEsOptimizer):
+        optimizer.sigma0 = args.sigma0
     await optimizer.run()
 
     logging.info("Finished optimizing.")
