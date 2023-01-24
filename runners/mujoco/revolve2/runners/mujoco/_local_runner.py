@@ -153,9 +153,12 @@ class LocalRunner(Runner):
                     #   (whatever last sample time was is taken to be the duration)
                     if is_healthy is not None:
                         if not is_healthy(actor_state):
+                            total_steps = results.environment_results[
+                                env_index
+                            ].steps_completed
                             # end the simulation
                             logging.info(
-                                f"stopping sim at time {time:0.3f} due to unhealthy actor!"
+                                f"stopping sim at time {time:0.3f} (step {total_steps}) due to unhealthy actor!"
                             )
                             break
 
@@ -219,6 +222,7 @@ class LocalRunner(Runner):
 
                 # step simulation
                 mujoco.mj_step(model, data)
+                results.environment_results[env_index].steps_completed += 1
 
                 if not self._headless:
                     viewer.render()

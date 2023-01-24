@@ -8,7 +8,7 @@ from typing import List, Tuple
 import numpy as np
 import revolve2.core.optimization.ea.generic_ea.population_management as population_management
 import revolve2.core.optimization.ea.generic_ea.selection as selection
-from revolve2.core.physics.running._results import ActorState
+from revolve2.core.physics.running._results import ActorState, BatchResults
 import sqlalchemy
 import wandb
 from fitness import fitness_functions
@@ -329,8 +329,18 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             batch_result_samples.append(
                 _batch_result_samples[i * len(genotypes) : (i + 1) * len(genotypes)]
             )
-        logging.info("Finished batch.")
+        batch_res: BatchResults
+        # tabulate total steps of simulation performed (across all samples etc)
+        total_steps = 0
+        for batch_res in _batch_result_samples:
+            assert isinstance(
+                batch_res, BatchResults
+            ), f"unexpected type {type(batch_res)}"  # sanity check
+            for env_res in batch_res.environment_results:
+                total_steps += env_res.steps_completed
+        logging.info(f"Finished batch (with {total_steps} total steps).")
         logging.info(self._fitness_function)
+        self._unique_sim_steps += total_steps
 
         environment_results = []
         fitness_samples = []
@@ -364,6 +374,7 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
 
         wandb.log(
             {
+                "sim_step": self._unique_sim_steps,
                 "steps_max": max(steps),
                 "steps_avg": sum(steps) / len(steps),
                 "steps_min": min(steps),

@@ -156,6 +156,7 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
     _latest_fitnesses: Optional[List[Fitness]]  # None only for the initial population
     _latest_results: List[EnvironmentResults]
     __generation_index: int
+    _unique_sim_steps: int = 0  # total number of sim steps performed so far
 
     async def ainit_new(
         self,
@@ -551,7 +552,9 @@ class EAOptimizer(Process, Generic[Genotype, Fitness]):
             population, fitnesses, num_parent_groups
         )
         assert type(parent_selections) == list
-        assert len(parent_selections) == num_parent_groups, f"{len(parent_selections)} should == {num_parent_groups}"
+        assert (
+            len(parent_selections) == num_parent_groups
+        ), f"{len(parent_selections)} should == {num_parent_groups}"
         assert all(type(s) == list for s in parent_selections)
         assert all(
             [

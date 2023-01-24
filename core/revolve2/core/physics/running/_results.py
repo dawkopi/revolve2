@@ -39,6 +39,7 @@ class EnvironmentResults:
     """Result of running an environment."""
 
     environment_states: List[EnvironmentState]
+    steps_completed: int = 0  # total number of simulation steps performed
 
 
 @dataclass

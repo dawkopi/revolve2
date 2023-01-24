@@ -134,6 +134,7 @@ class ArsOptimizer(Optimizer):
 
         wandb.log(
             {
+                "sim_step": self._unique_sim_steps,
                 "steps_max": max(steps),
                 "steps_avg": sum(steps) / len(steps),
                 "steps_min": min(steps),
