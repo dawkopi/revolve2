@@ -257,6 +257,14 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
         return old_survivors, new_survivors
 
     def _must_do_next_gen(self) -> bool:
+        if (
+            self._max_sim_steps != None
+            and self._unique_sim_steps >= self._max_sim_steps
+        ):
+            logging.info(
+                f"Exceeded sim steps budget (at step {self._unique_sim_steps} of budget {self._max_sim_steps})"
+            )
+            return False
         return self.generation_index != self._num_generations
 
     def _crossover(
@@ -338,9 +346,11 @@ class Optimizer(EAOptimizer[LinearControllerGenotype, float]):
             ), f"unexpected type {type(batch_res)}"  # sanity check
             for env_res in batch_res.environment_results:
                 total_steps += env_res.steps_completed
-        logging.info(f"Finished batch (with {total_steps} total steps).")
-        logging.info(self._fitness_function)
         self._unique_sim_steps += total_steps
+        logging.info(
+            f"Finished batch (with {total_steps:,} total steps, and {self._unique_sim_steps:,} steps in experiment so far)."
+        )
+        logging.info(self._fitness_function)
 
         environment_results = []
         fitness_samples = []

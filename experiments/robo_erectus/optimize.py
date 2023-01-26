@@ -43,6 +43,13 @@ async def main() -> None:
     )
     parser.add_argument("-o", "--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
+    parser.add_argument(
+        "-ms",
+        "--max_steps",
+        type=float,
+        default=None,
+        help="max steps (in millions e.g. 2.5)",
+    )
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
@@ -218,17 +225,25 @@ async def main() -> None:
             body_name=body_name,
         )
 
-    logging.info("Starting optimization process...")
-
     optimizer.n_jobs = args.n_jobs
     optimizer.samples = args.samples
     if isinstance(optimizer, ArsOptimizer):
         optimizer.n_directions = ars_directions
     if isinstance(optimizer, CmaEsOptimizer):
         optimizer.sigma0 = args.sigma0
+    if args.max_steps is not None:
+        args.max_steps = int(args.max_steps * 1_000_000)
+        optimizer._max_sim_steps = args.max_steps
+    max_steps_str = f"{args.max_steps:,}" if args.max_steps is not None else "None"
+
+    logging.info(
+        f"Starting optimization process (max generations={args.num_generations:,}, max steps={max_steps_str})..."
+    )
     await optimizer.run()
 
-    logging.info("Finished optimizing.")
+    logging.info(
+        f"Finished optimizing. (reached generation {optimizer.generation_index}/{args.num_generations}, sim step {optimizer._unique_sim_steps:,}/{max_steps_str})"
+    )
     logging.info(f"database_dir = '{database_dir}'\n")
 
     if args.wandb:

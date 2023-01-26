@@ -17,6 +17,7 @@ EXP_CMD_BASE = [
     "-t",
     "3",
     # "--save_best",  # ensure rerun_best.py works!
+    "--skip_best",
     # "--best_dur",
     # "1",
 ]
