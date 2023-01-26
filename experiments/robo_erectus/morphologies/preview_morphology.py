@@ -17,7 +17,9 @@ from utilities import (
 
 async def main() -> None:
     """Run the simulation."""
-    body_name = "humanoid"  # register in morphology.py/MORPHOLOGIES before using it
+    body_name = (
+        "erectus_10-10-10"  # register in morphology.py/MORPHOLOGIES before using it
+    )
     genotype = LinearControllerGenotype.random(body_name)
 
     rerunner = ModularRobotRerunner()

@@ -230,6 +230,10 @@ MORPHOLOGIES = {
         "min_z": 0.35,
         "get_pose": actor_get_standing_pose,
     },
+    "erectus_10-10-10": {
+        "min_z": 0.38,
+        "get_pose": actor_get_standing_pose,
+    },
 }
 
 for key, m in MORPHOLOGIES.items():
