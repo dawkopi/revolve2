@@ -56,6 +56,7 @@ async def main() -> None:
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument("-s", "--samples", type=int, default=4)
     parser.add_argument("--sigma0", type=float, default=0.2)
+    parser.add_argument("--step_size", type=float, default=0.02)
     parser.add_argument(
         "-m",
         "--morphology",
@@ -229,6 +230,7 @@ async def main() -> None:
     optimizer.samples = args.samples
     if isinstance(optimizer, ArsOptimizer):
         optimizer.n_directions = ars_directions
+        optimizer.step_size = args.step_size
     if isinstance(optimizer, CmaEsOptimizer):
         optimizer.sigma0 = args.sigma0
     if args.max_steps is not None:

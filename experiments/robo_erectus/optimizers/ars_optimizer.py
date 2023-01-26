@@ -17,7 +17,7 @@ class ArsOptimizer(Optimizer):
         Genotype = param[1]
         evaluate_func = param[2]
 
-        params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resamples
+        params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resampless
             "n_directions": 64,  # evolve direction (like number of children / 2)
             "deltas_used": 64,  # like how many survivors
             "step_size": 0.02,  # evolve step size
@@ -34,6 +34,8 @@ class ArsOptimizer(Optimizer):
         if self.n_directions != None:
             params["n_directions"] = self.n_directions
             params["deltas_used"] = self.n_directions
+        if self.step_size != None:
+            params["step_size"] = self.step_size
         logging.info(f"Initalizing ARS... (n_directions={params['n_directions']})")
 
         dir_path = params["dir_path"]
