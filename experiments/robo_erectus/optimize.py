@@ -56,8 +56,8 @@ async def main() -> None:
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
     parser.add_argument("-s", "--samples", type=int, default=4)
-    parser.add_argument("--sigma0", type=float, default=0.2)
-    parser.add_argument("--step_size", type=float, default=0.02)
+    parser.add_argument("--sigma0", type=float, default=0.2, help="param for CMA")
+    parser.add_argument("--step_size", type=float, default=0.02, help="param for ARS")
     parser.add_argument(
         "-m",
         "--morphology",
