@@ -328,7 +328,7 @@ class LocalRunner(Runner):
                 # )
 
                 # note that the armature is related to "inertia"
-                robot.find(namespace="joint", identifier=joint.name).armature = "0.05"
+                robot.find(namespace="joint", identifier=joint.name).armature = "0.2"
                 # damping is kinda like friction in the rotation
                 # robot.find(namespace="joint", identifier=joint.name).damping = "0.005"
                 robot.actuator.add(
@@ -343,15 +343,15 @@ class LocalRunner(Runner):
                         identifier=joint.name,
                     ),
                 )
-                # robot.actuator.add(
-                #     "velocity",
-                #     kv=0.05, # this is the v value for PID
-                #     # kv=0.4,
-                #     # kv=0.05,
-                #     ctrlrange="-1.0 1.0",
-                #     forcerange=f"{-force_range} {force_range}",
-                #     joint=robot.find(namespace="joint", identifier=joint.name),
-                # )
+                robot.actuator.add(
+                    "velocity",
+                    kv=0.1,  # this is the v value for PID
+                    # kv=0.4,
+                    # kv=0.05,
+                    ctrlrange="-1.0 1.0",
+                    forcerange=f"{-force_range} {force_range}",
+                    joint=robot.find(namespace="joint", identifier=joint.name),
+                )
 
             attachment_frame = env_mjcf.attach(robot)
             attachment_frame.add("freejoint")
