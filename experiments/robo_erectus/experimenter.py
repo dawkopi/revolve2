@@ -10,7 +10,9 @@ OPTIMIZE = os.path.join(SCRIPT_DIR, "optimize.py")
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description=f"Runs a set of experiments by calling {os.path.basename(OPTIMIZE)}"
+    )
     # erectus_000
     parser.add_argument("-m", "--morphology", type=str, default="erectus_000")
     parser.add_argument(
@@ -19,7 +21,12 @@ def main():
         default="",
         help="prefix for run names (sets group_name in wandb)",
     )
-    parser.add_argument("--dry", action="store_true", default=False)
+    parser.add_argument(
+        "--dry",
+        action="store_true",
+        default=False,
+        help="dry run (just print commands)",
+    )
     parser.add_argument(
         "-nw", "--no-wandb", action="store_true", default=False, help="don't use wandb"
     )
@@ -41,7 +48,7 @@ def main():
 
     wandb_flags = []
     if not args.no_wandb:
-        wandb_flags = ["-w", "--wandb_os_logs", "--group_name", args.prefix]
+        wandb_flags = ["-w", "--wandb_os_logs"]
 
     assert os.path.exists(OPTIMIZE)
 
@@ -67,38 +74,41 @@ def main():
 
             if opti == "cma":
                 for sigma0 in [0.2, 0.8]:
+                    group_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_sigma{sigma0}"
                     for trial in range(args.trials):
-                        run_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_sigma{sigma0}_trial{trial}"
-                        cmd = [
-                            *base_cmd,
-                            "-cma",
-                            "--sigma0",
-                            str(sigma0),
-                            "-n",
-                            run_name,
-                        ]
+                        task_batch.append(
+                            [
+                                *base_cmd,
+                                "-cma",
+                                "--sigma0",
+                                str(sigma0),
+                                "--group_name",
+                                group_name,
+                                "-n",
+                                f"{group_name}_trial{trial}",
+                            ]
+                        )
             elif opti == "ars":
-                run_name = f"{args.prefix + '_' if args.prefix else ''}{opti}pop{pop}"
                 for step_size in [0.002, 0.02, 0.2]:
+                    group_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_step_size{step_size}"
                     for trial in range(args.trials):
-                        run_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_sigma{sigma0}_trial{trial}"
-
-                        cmd = [
-                            *base_cmd,
-                            "-ars",
-                            "--step_size",
-                            str(step_size),
-                            "-n",
-                            run_name,
-                        ]
-                        task_batch.append(cmd)
+                        task_batch.append(
+                            [
+                                *base_cmd,
+                                "-ars",
+                                "--step_size",
+                                str(step_size),
+                                "--group_name",
+                                group_name,
+                                "-n",
+                                f"{group_name}_trial{trial}",
+                            ]
+                        )
 
             else:
                 raise NotImplementedError
 
-    print(
-        f"collected {len(task_batch)} commands to {'dry' if args.dry_run else ''} run\n"
-    )
+    print(f"collected {len(task_batch)} commands to {'dry' if args.dry else ''} run\n")
     # TODO: implement some way of scheduling jobs, and use -cpu flag!!
     for i, cmd in enumerate(task_batch):
         run_cmd(cmd, dry_run=args.dry, msg=f"{i+1}/{len(task_batch)}")
