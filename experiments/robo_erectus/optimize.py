@@ -27,6 +27,7 @@ async def main() -> None:
     """Run the optimization process."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--run_name", type=str, default="default")
+    parser.add_argument("--group_name", type=str, default="default")
     parser.add_argument("-l", "--resume_latest", action="store_true")
     parser.add_argument("-r", "--resume", action="store_true")
     parser.add_argument("--rng_seed", type=int, default=420)
@@ -120,6 +121,7 @@ async def main() -> None:
 
     wandb.init(
         mode="online" if args.wandb else "disabled",
+        group=args.group_name,
         project="robo-erectus",
         entity="ea-research",
         config=vars(args),
