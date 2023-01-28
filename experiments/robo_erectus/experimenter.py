@@ -10,6 +10,7 @@ from multiprocessing import cpu_count
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 OPTIMIZE = os.path.join(SCRIPT_DIR, "optimize.py")
+ROOT_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 
 
 def main():
@@ -29,7 +30,7 @@ def main():
         "-cpu",
         "--max_cpus",
         type=int,
-        default=int(CPUS / 2),
+        default=max(1, int(CPUS / 2)),
         help="max number of cpus to use at once (across experiment)",
     )
     parser.add_argument(
@@ -54,6 +55,12 @@ def main():
         default=9999,
         help="defaults to arbitrarily high",
     )
+    parser.add_argument(
+        "--venv",
+        type=str,
+        default=os.path.join(ROOT_DIR, ".venv"),
+        help="path to virtualenv environment dir for tasks to use",
+    )
     # parser.add_argument("-t", "--simulation_time", type=int, default=10)
     args = parser.parse_args()
 
@@ -62,10 +69,12 @@ def main():
         wandb_flags = ["-w", "--wandb_os_logs"]
 
     assert os.path.exists(OPTIMIZE)
+    assert os.path.isdir(args.venv), f"virtualenv dir not found: '{args.venv}'"
 
     task_batch = []  # build list of commands to run
     for opti in ["cma", "ars"]:
         for pop in [10, 100]:
+            # NOTE: -cpu flag gets added in schedule_jobs()
             base_cmd = [
                 "time",
                 "python3",
@@ -121,28 +130,121 @@ def main():
                 raise NotImplementedError
 
     print(f"collected {len(task_batch)} commands to {'dry' if args.dry else ''} run\n")
+    print("printing commands for reference: (-cpu flag will be added later)")
     for i, cmd in enumerate(task_batch):
         # run_cmd(cmd, dry_run=args.dry, msg=f"{i+1}/{len(task_batch)}")
-        run_cmd(cmd, dry_run=True, msg=f"{i+1}/{len(task_batch)}")
+        # run_cmd(cmd, dry_run=True, msg=f"{i+1}/{len(task_batch)}")
+        # here we just print the commands for reference:
+        # print(f"command {str(i+1).zfill(2)}/{len(task_batch)}:\t" + " ".join(cmd))
+        print(" ".join(cmd))
 
-    # TODO: fix this scheduling / calculation of cpus_per_task
-    num_tasks = len(task_batch)
     args.max_cpus = min(CPUS, args.max_cpus)
-    parallel = 1  # num tasks to run in parallel
-    cpus_per_task = 1
-    if args.max_cpus > 1:
-        # try to give 4 cpus per task
-        cpus_per_task = min(1, args.max_cpus)
-        parallel = math.floor(args.max_cpus / cpus_per_task)
-
-    # TODO: now go through and add -cpu flag to all tasks?
-
-    print(
-        f"\nplan: run {math.ceil(num_tasks / parallel)} batches, each with {cpus_per_task} cpus"
+    schedule_jobs(
+        task_batch,
+        args.prefix,
+        args.max_cpus,
+        args.venv,
+        dry_run=args.dry,
     )
 
-    if not args.dry:
-        schedule_jobs(task_batch, args.prefix, parallel)
+
+def schedule_jobs(
+    task_batch: List,
+    name: str,
+    max_cpus: int,
+    venv_dir: str,
+    dry_run=False,
+):
+    """
+    Schedule jobs to run in a tmux session.
+    Requires teamocil and tmux to be installed.  https://github.com/remi/teamocil#installation
+    params:
+        task_batch: list of commands (where each command is a list strings)
+        max_cpus: max number of tasks to run in parallel (as separate tmux tabs)
+        name: name of tmux session to create
+    """
+    num_tasks = len(task_batch)
+    print(
+        f"\nscheduling {num_tasks} tasks, total cpu budget is {max_cpus} (of {cpu_count()} available)..."
+    )
+    tasks = copy.deepcopy(task_batch)
+
+    # decide scheduling / calculate cpus_per_task
+    num_batches = max(1, min(8, num_tasks, max_cpus))  # (aim for up to 8 batches)
+    remaining_cpus = max_cpus
+    # bin_size = math.ceil(num_tasks / num_batches)
+
+    precommands = [f"source '{os.path.join(venv_dir, 'bin/activate')}'"]
+    # create dict defining layout of tmux session (for teamocil)
+    data = {
+        "name": name,
+        "windows": [],
+    }
+    for b in range(num_batches):
+        remaining_batches = num_batches - (b)  # counting this one
+        if b != num_batches - 1:
+            batch_cpus = max(1, int(remaining_cpus / remaining_batches))
+            # batch_cpus = cpus_per_task
+            # batch_size = max(1, round(num_tasks * (batch_cpus / max_cpus)))
+            batch_size = max(1, round(len(tasks) * (batch_cpus / remaining_cpus)))
+        else:
+            # last batch may get a higher proportion of tasks (as it may have more cpus)
+            batch_size = len(tasks)
+            batch_cpus = remaining_cpus
+
+        remaining_cpus -= batch_cpus
+        assert batch_cpus >= 1
+
+        # add -cpu flag to all tasks in batch
+        cur_tasks = [[*cmd, "-cpu", str(batch_cpus)] for cmd in tasks[0:batch_size]]
+        # flatten tasks into list of strings
+        cur_tasks = [" ".join(cmd) for cmd in cur_tasks]
+        batch_name = f"batch{str(b+1).zfill(2)}"
+        data["windows"].append(
+            {
+                "name": batch_name,
+                "root": SCRIPT_DIR,
+                "layout": "tiled",
+                # "panes": ["date; " + "; date; ".join(cur_tasks)], # chain commands together to run in series
+                "panes": [{"commands": [*precommands, *cur_tasks]}],
+            }
+        )
+        print(f"{batch_name}: {len(cur_tasks)} tasks,\t{batch_cpus} cpus")
+        tasks = tasks[batch_size:]
+    assert len(tasks) == 0 and remaining_cpus == 0
+
+    fname = os.path.join(SCRIPT_DIR, f"layout_{name}.yml")
+    with open(fname, "w") as f:
+        yaml.dump(
+            data,
+            f,
+        )
+    print(f"\nwrote: teamocil layout: '{fname}'")
+    if dry_run:
+        print(f"not starting tmux session due to dry run mode!")
+        return
+
+    # now start tmux session to run all jobs
+    cmd = ["tmux", "new", "-d", "-s", name]
+
+    exit_code = run_cmd(cmd)
+    if exit_code != 0:
+        print(f"failed to start tmux with code {exit_code}!")
+        exit(exit_code)
+
+    cmd = ["teamocil", "--layout", fname]
+    exit_code = run_cmd(cmd)
+    if exit_code != 0:
+        print(f"failed to run teamocil with code {exit_code}!")
+        exit(exit_code)
+
+    print(
+        f"\nsucessfully started tmux session '{name}' with {num_tasks} tasks running in {num_batches} parallel batches!"
+    )
+    print(f"\tyou can kill the experiment anytime with:")
+    print(f'\t\ttmux kill-session -t "{name}"')
+    print(f"\tyou can join the tmux session to watch progress with:")
+    print(f'\t\ttmux attach -t "{name}"')
 
 
 exit_codes = []
@@ -162,72 +264,6 @@ def run_cmd(cmd, msg="", dry_run=False):
         print(f"***command failed with code {res.returncode}")
         print(" ".join(cmd))
     return res.returncode
-
-
-def schedule_jobs(task_batch: List, name: str, parallel: int):
-    """
-    Schedule jobs to run in a tmux session.
-    Requires teamocil and tmux to be installed.  https://github.com/remi/teamocil#installation
-    params:
-        task_batch: list of commands (where each command is a list strings)
-        parallel: max number of tasks to run in parallel (as separate tmux tabs)
-        name: name of tmux session to create
-    """
-    print(f"\nscheduling {len(task_batch)} tasks!")
-    tasks = copy.deepcopy(task_batch)
-    # create dict defining layour for teamocil
-    data = {
-        "name": name,
-        "windows": [],
-    }
-    bin_size = math.ceil(len(task_batch) / parallel)
-    batch_num = 0
-    while len(tasks) > 0:
-        # flatten tasks into list of strings
-        cur_tasks = tasks[0:bin_size]
-        cur_tasks = [" ".join(cmd) for cmd in cur_tasks]
-        data["windows"].append(
-            {
-                "name": f"batch{str(batch_num+1).zfill(2)}",
-                "root": SCRIPT_DIR,
-                "layout": "tiled",
-                # chain commands together to run in series
-                "panes": ["date; " + "; date; ".join(cur_tasks)],
-                # "panes": [{"commands": tasks[0:bin_size]}],
-            }
-        )
-        tasks = tasks[bin_size:]
-        batch_num += 1
-
-    fname = os.path.join(SCRIPT_DIR, f"layout_{name}.yml")
-    with open(fname, "w") as f:
-        yaml.dump(
-            data,
-            f,
-        )
-    print(f"wrote: teamocil layout: '{fname}'")
-
-    # now start tmux session to run all jobs
-    cmd = ["tmux", "new", "-d", "-s", name]
-
-    exit_code = run_cmd(cmd)
-    if exit_code != 0:
-        print(f"failed to start tmux with code {exit_code}!")
-        exit(exit_code)
-
-    cmd = ["teamocil", "--layout", fname]
-    exit_code = run_cmd(cmd)
-    if exit_code != 0:
-        print(f"failed to run teamocil with code {exit_code}!")
-        exit(exit_code)
-
-    print(
-        f"\nsucessfully started tmux session '{name}' with {len(task_batch)} tasks running in {batch_num} parallel batches!"
-    )
-    print(f"\tyou can now join the tmux session to watch progress with:")
-    print(f'\t\ttmux attach -t "{name}"')
-    print(f"\tyou can kill the experiment anytime with:")
-    print(f'\t\ttmux kill-session -t "{name}"')
 
 
 if __name__ == "__main__":
