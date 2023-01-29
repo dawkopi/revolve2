@@ -333,7 +333,7 @@ class LocalRunner(Runner):
                 # robot.find(namespace="joint", identifier=joint.name).damping = "0.005"
                 robot.actuator.add(
                     "position",
-                    kp=100.0,  # this is the p value for PID
+                    kp=10000.0,  # this is the p value for PID
                     # kp=5.0,
                     # kp=0.2,
                     ctrlrange="-1.0 1.0",
