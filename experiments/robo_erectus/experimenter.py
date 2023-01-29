@@ -7,9 +7,11 @@ from typing import List
 import yaml
 import math
 from multiprocessing import cpu_count
+from morphologies.morphology import MORPHOLOGIES
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 OPTIMIZE = os.path.join(SCRIPT_DIR, "optimize.py")
+# OPTIMIZE = "./optimize.py"
 ROOT_DIR = os.path.dirname(os.path.dirname(SCRIPT_DIR))
 
 
@@ -19,7 +21,13 @@ def main():
         description=f"Runs a set of experiments by calling {os.path.basename(OPTIMIZE)}"
     )
     # erectus_000
-    parser.add_argument("-m", "--morphology", type=str, default="erectus_000")
+    parser.add_argument(
+        "-m",
+        "--morphology",
+        type=str,
+        required=True,
+        help="morphology names, separated by commas if multiple",
+    )
     parser.add_argument(
         "--prefix",
         type=str,
@@ -72,62 +80,65 @@ def main():
     assert os.path.isdir(args.venv), f"virtualenv dir not found: '{args.venv}'"
 
     task_batch = []  # build list of commands to run
-    for opti in ["cma", "ars"]:
-        for pop in [10, 100]:
-            # NOTE: -cpu flag gets added in schedule_jobs()
-            base_cmd = [
-                "time",
-                "python3",
-                OPTIMIZE,
-                "-m",
-                args.morphology,
-                "-p",
-                str(pop),
-                "--max_steps",  # millions
-                str(500),
-                "-g",
-                str(args.num_generations),
-                "--skip_best",
-                *wandb_flags,
-                # "-t",
-                # str(args.simulation_time),
-            ]
+    morphologies = args.morphology.split(",")
+    for morphology in morphologies:
+        assert morphology in MORPHOLOGIES, f"morphology must exist: '{morphology}'"
+        for opti in ["cma", "ars"]:
+            for pop in [10, 100]:
+                # NOTE: -cpu flag gets added in schedule_jobs()
+                base_cmd = [
+                    "time",
+                    "python3",
+                    OPTIMIZE,
+                    "-m",
+                    morphology,
+                    "-p",
+                    str(pop),
+                    "--max_steps",  # millions
+                    str(500),
+                    "-g",
+                    str(args.num_generations),
+                    "--skip_best",
+                    *wandb_flags,
+                    # "-t",
+                    # str(args.simulation_time),
+                ]
 
-            if opti == "cma":
-                for sigma0 in [0.2, 0.8]:
-                    group_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_sigma{sigma0}"
-                    for trial in range(args.trials):
-                        task_batch.append(
-                            [
-                                *base_cmd,
-                                "-cma",
-                                "--sigma0",
-                                str(sigma0),
-                                "--group_name",
-                                group_name,
-                                "-n",
-                                f"{group_name}_trial{trial}",
-                            ]
-                        )
-            elif opti == "ars":
-                for step_size in [0.002, 0.02, 0.2]:
-                    group_name = f"{args.prefix + '_' if args.prefix else ''}_{opti}_pop{pop}_step_size{step_size}"
-                    for trial in range(args.trials):
-                        task_batch.append(
-                            [
-                                *base_cmd,
-                                "-ars",
-                                "--step_size",
-                                str(step_size),
-                                "--group_name",
-                                group_name,
-                                "-n",
-                                f"{group_name}_trial{trial}",
-                            ]
-                        )
+                if opti == "cma":
+                    for sigma0 in [0.2, 0.8]:
+                        group_name = f"{args.prefix + '_' if args.prefix else ''}_{morphology}_{opti}_pop{pop}_sigma{sigma0}"
+                        for trial in range(args.trials):
+                            task_batch.append(
+                                [
+                                    *base_cmd,
+                                    "-cma",
+                                    "--sigma0",
+                                    str(sigma0),
+                                    "--group_name",
+                                    group_name,
+                                    "-n",
+                                    f"{group_name}_trial{trial}",
+                                ]
+                            )
+                elif opti == "ars":
+                    for step_size in [0.002, 0.02, 0.2]:
+                        group_name = f"{args.prefix + '_' if args.prefix else ''}_{morphology}_{opti}_pop{pop}_step_size{step_size}"
+                        for trial in range(args.trials):
+                            task_batch.append(
+                                [
+                                    *base_cmd,
+                                    "-ars",
+                                    "--step_size",
+                                    str(step_size),
+                                    "--group_name",
+                                    group_name,
+                                    "-n",
+                                    f"{group_name}_trial{trial}",
+                                ]
+                            )
 
-            else:
-                raise NotImplementedError
+                else:
+                    raise NotImplementedError
 
     print(f"collected {len(task_batch)} commands to {'dry' if args.dry else ''} run\n")
     print("printing commands for reference: (-cpu flag will be added later)")
