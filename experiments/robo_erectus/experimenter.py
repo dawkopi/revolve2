@@ -8,6 +8,7 @@ import yaml
 import math
 from multiprocessing import cpu_count
 from morphologies.morphology import MORPHOLOGIES
+import random
 
 SCRIPT_DIR = os.path.abspath(os.path.dirname(__file__))
 OPTIMIZE = os.path.join(SCRIPT_DIR, "optimize.py")
@@ -48,6 +49,12 @@ def main():
         help="dry run (just print commands)",
     )
     parser.add_argument(
+        "--shuffle",
+        action="store_true",
+        default=False,
+        help="shuffle tasks before scheduling (may balance workload better)",
+    )
+    parser.add_argument(
         "-nw", "--no-wandb", action="store_true", help="don't use wandb"
     )
     parser.add_argument(
@@ -57,10 +64,17 @@ def main():
         required=True,
     )
     parser.add_argument(
+        "-ts",
+        "--trial_start",
+        type=int,
+        help="start index to start trial names with",
+        default=0,
+    )
+    parser.add_argument(
         "-g",
         "--num_generations",
         type=int,
-        default=9999,
+        default=100_000,
         help="defaults to arbitrarily high",
     )
     parser.add_argument(
@@ -105,9 +119,12 @@ def main():
                 ]
 
                 if opti == "cma":
-                    for sigma0 in [0.2, 0.8]:
+                    # for sigma0 in [0.2, 0.8]:
+                    for sigma0 in [0.2]:
                         group_name = f"{args.prefix + '_' if args.prefix else ''}_{morphology}_{opti}_pop{pop}_sigma{sigma0}"
-                        for trial in range(args.trials):
+                        for trial in range(
+                            args.trial_start, args.trial_start + args.trials
+                        ):
                             task_batch.append(
                                 [
                                     *base_cmd,
@@ -121,9 +138,12 @@ def main():
                                 ]
                             )
                 elif opti == "ars":
-                    for step_size in [0.002, 0.02, 0.2]:
+                    # for step_size in [0.002, 0.02, 0.2]:
+                    for step_size in [0.02]:
                         group_name = f"{args.prefix + '_' if args.prefix else ''}_{morphology}_{opti}_pop{pop}_step_size{step_size}"
-                        for trial in range(args.trials):
+                        for trial in range(
+                            args.trial_start, args.trial_start + args.trials
+                        ):
                             task_batch.append(
                                 [
                                     *base_cmd,
@@ -147,9 +167,12 @@ def main():
         # run_cmd(cmd, dry_run=True, msg=f"{i+1}/{len(task_batch)}")
         # here we just print the commands for reference:
         # print(f"command {str(i+1).zfill(2)}/{len(task_batch)}:\t" + " ".join(cmd))
-        print(" ".join(cmd))
+        print(" ".join(cmd) + "\n")
 
     args.max_cpus = min(CPUS, args.max_cpus)
+    if args.shuffle:
+        print(f"shuffling tasks before scheduling...")
+        random.shuffle(task_batch)
     schedule_jobs(
         task_batch,
         args.prefix,
@@ -186,6 +209,7 @@ def schedule_jobs(
     # bin_size = math.ceil(num_tasks / num_batches)
 
     precommands = [f"source '{os.path.join(venv_dir, 'bin/activate')}'"]
+    postcommands = ["echo jobs done at time:", "date", "date +%s"]
     # create dict defining layout of tmux session (for teamocil)
     data = {
         "name": name,
@@ -217,7 +241,7 @@ def schedule_jobs(
                 "root": SCRIPT_DIR,
                 "layout": "tiled",
                 # "panes": ["date; " + "; date; ".join(cur_tasks)], # chain commands together to run in series
-                "panes": [{"commands": [*precommands, *cur_tasks]}],
+                "panes": [{"commands": [*precommands, *cur_tasks, *postcommands]}],
             }
         )
         print(f"{batch_name}: {len(cur_tasks)} tasks,\t{batch_cpus} cpus")

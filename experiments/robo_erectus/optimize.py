@@ -5,7 +5,7 @@ import glob
 import logging
 import subprocess
 import numpy as np
-from random import Random
+import random
 
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
@@ -30,7 +30,7 @@ async def main() -> None:
     parser.add_argument("--group_name", type=str, default="default")
     parser.add_argument("-l", "--resume_latest", action="store_true")
     parser.add_argument("-r", "--resume", action="store_true")
-    parser.add_argument("--rng_seed", type=int, default=420)
+    parser.add_argument("--rng_seed", type=int, default=None)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
     parser.add_argument("-t", "--simulation_time", type=int, default=10)
     parser.add_argument("--sampling_frequency", type=float, default=10)
@@ -103,6 +103,9 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.rng_seed is None:
+        args.rng_seed = random.randint(0, 999999)
+
     body_name = args.morphology
     assert body_name in MORPHOLOGIES, "morphology must exist"
     ensure_dirs(DATABASE_PATH)
@@ -145,8 +148,9 @@ async def main() -> None:
     )
 
     # random number generator
-    rng = Random()
+    rng = random.Random()
     rng.seed(args.rng_seed)
+    print(f"using random seed {args.rng_seed}")
 
     # process id generator
     process_id_gen = ProcessIdGen()
@@ -231,8 +235,12 @@ async def main() -> None:
     optimizer.n_jobs = args.n_jobs
     optimizer.samples = args.samples
     if isinstance(optimizer, ArsOptimizer):
-        optimizer.n_directions = ars_directions
-        optimizer.step_size = args.step_size
+        optimizer.override_params = {
+            "n_directions": ars_directions,
+            "deltas_used": ars_directions,
+            "step_size": args.step_size,
+            "seed": args.rng_seed,
+        }
     if isinstance(optimizer, CmaEsOptimizer):
         optimizer.sigma0 = args.sigma0
     if args.max_steps is not None:

@@ -10,9 +10,13 @@ import wandb
 from measures import *
 from optimizer import Optimizer
 from .ars.ars import ARSLearner
+from typing import Optional, Dict
 
 
 class ArsOptimizer(Optimizer):
+    # partial dict of params to override defaults
+    override_params: Optional[Dict] = None
+
     def init_optimizer(self, param):
         Genotype = param[1]
         evaluate_func = param[2]
@@ -31,12 +35,12 @@ class ArsOptimizer(Optimizer):
             "filter": "NoFilter",
             # "filter": "MeanStdFilter", # Dawid worries about how well this is implemented for us / if its necessary
         }
-        if self.n_directions != None:
-            params["n_directions"] = self.n_directions
-            params["deltas_used"] = self.n_directions
-        if self.step_size != None:
-            params["step_size"] = self.step_size
-        logging.info(f"Initalizing ARS... (n_directions={params['n_directions']})")
+        if self.override_params != None:
+            for key in self.override_params:
+                assert key in params.keys()
+                params[key] = self.override_params[key]
+
+        logging.info(f"Initalizing ARS... params=\n{params}")
 
         dir_path = params["dir_path"]
 
