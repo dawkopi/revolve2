@@ -272,7 +272,7 @@ class LocalRunner(Runner):
         return results
 
     @staticmethod
-    def _make_mjcf(env_descr: Environment) -> str:
+    def _make_mjcf(env_descr: Environment, checkered: bool = True) -> str:
         env_mjcf = mjcf.RootElement(model="environment")
 
         env_mjcf.compiler.angle = "radian"
@@ -288,6 +288,7 @@ class LocalRunner(Runner):
             type="plane",
             size=[10, 10, 1],
             rgba=[0.2, 0.2, 0.2, 1],
+            material=("MatPlane" if checkered else None),
         )
         env_mjcf.worldbody.add(
             "light",
@@ -297,6 +298,55 @@ class LocalRunner(Runner):
             castshadow=False,
         )
         env_mjcf.visual.headlight.active = 0
+
+        # textures based on https://github.com/Farama-Foundation/Gymnasium/blob/main/gymnasium/envs/mujoco/assets/hopper.xml
+        env_mjcf.asset.add(
+            "texture",
+            type="skybox",
+            builtin="gradient",
+            rgb1=".4 .5 .6",
+            rgb2="0 0 0",
+            width="100",
+            height="100",
+        )
+        env_mjcf.asset.add(
+            "texture",
+            builtin="flat",
+            height="1278",
+            mark="cross",
+            markrgb="1 1 1",
+            name="texgeom",
+            random="0.01",
+            rgb1="0.8 0.6 0.4",
+            rgb2="0.8 0.6 0.4",
+            type="cube",
+            width="127",
+        )
+        env_mjcf.asset.add(
+            "texture",
+            builtin="checker",
+            height="100",
+            name="texplane",
+            rgb1="0 0 0",
+            rgb2="0.8 0.8 0.8",
+            type="2d",
+            width="100",
+        )
+        env_mjcf.asset.add(
+            "material",
+            name="MatPlane",
+            reflectance="0.0",
+            shininess="1",
+            specular="1",
+            texrepeat="60 60",
+            texture="texplane",
+        )
+        env_mjcf.asset.add(
+            "material",
+            name="geom",
+            texture="texgeom",
+            texuniform="true",
+        )
 
         for actor_index, posed_actor in enumerate(env_descr.actors):
             urdf = physbot_to_urdf(

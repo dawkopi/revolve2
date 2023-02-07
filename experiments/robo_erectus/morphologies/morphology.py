@@ -258,31 +258,12 @@ for key, m in MORPHOLOGIES.items():
     m["is_healthy"] = healthy_factory(min_z)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="output a given morphology to xml (to visualize with mujoc 'simulate' program)"
-    )
-    parser.add_argument(
-        "-m",
-        "--morphology",
-        type=str,
-        default="erectus",
-        help="name of morphology to use (e.g. 'erecuts' | 'spider')",
-    )
-    parser.add_argument(
-        "-l",
-        "--list",
-        action="store_true",
-        help="list all morphologies",
-    )
-    args = parser.parse_args()
+def output_all():
+    for body_name in MORPHOLOGIES.keys():
+        output_morphology(body_name)
 
-    if args.list:
-        print("list of all morphologies:")
-        print("\n".join(MORPHOLOGIES.keys()))
-        print()
 
-    body_name = args.morphology
+def output_morphology(body_name: str):
     assert body_name in MORPHOLOGIES, "morphology must exist"
 
     from genotypes.linear_controller_genotype import LinearControllerGenotype
@@ -309,3 +290,44 @@ if __name__ == "__main__":
 
     with open(os.path.join(SCRIPT_DIR, f"cur.xml"), "w") as f:
         f.write(xml_string)
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="output a given morphology to xml (to visualize with mujoc 'simulate' program)"
+    )
+    parser.add_argument(
+        "-m",
+        "--morphology",
+        type=str,
+        default=None,
+        help="name of morphology to use (e.g. 'erecuts' | 'spider')",
+    )
+    parser.add_argument(
+        "-l",
+        "--list",
+        action="store_true",
+        help="list all morphologies",
+    )
+    parser.add_argument(
+        "-a",
+        "--all",
+        action="store_true",
+        help="output all morphologies to xml files",
+    )
+    args = parser.parse_args()
+
+    if args.list:
+        print("list of all morphologies:")
+        print("\n".join(MORPHOLOGIES.keys()))
+        print()
+    if args.all:
+        output_all()
+    elif args.morphology:
+        body_name = args.morphology
+        output_morphology(body_name)
+        # erectus_000,erectus_10-10-10,humanoid_I
+    else:
+        print("no morphology selected!\n")
+        print(parser.format_help())
+        exit(1)
