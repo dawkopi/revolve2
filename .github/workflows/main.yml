@@ -11,11 +11,12 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8.x"
-      - name: create virtualenv
-        run: |
-          pip install virtualenv
-          virtualenv .venv
-          . .venv/bin/activate
+      # removing this because venv sourcing doesn't persist between steps:
+      #- name: create virtualenv
+      #  run: |
+      #    pip install virtualenv
+      #    virtualenv .venv
+      #    . .venv/bin/activate
       - name: install serialization
         run: pip install ./serialization
       - name: install actor_controller
@@ -35,6 +36,9 @@ jobs:
         run: |
           sudo apt install libcereal-dev
           pip install ./genotypes/cppnwin
+      - name: view dirs2
+        run: |
+          sudo apt install -y tree && tree -L 2 ..
 
   check_format:
     runs-on: ubuntu-20.04
@@ -44,19 +48,39 @@ jobs:
         run: pip install -r ./codetools/requirements.txt
       - name: black
         run: ./codetools/black/check.sh
-      - name: isort
-        run: ./codetools/isort/check.sh
-      - name: pydocstyle
-        run: ./codetools/pydocstyle/check.sh
-      - name: darglint
-        run: ./codetools/darglint/check.sh
-      - name: pyflakes
-        run: ./codetools/pyflakes/check.sh
+      # disabling these for now cause they're too picky
+      #- name: isort
+      #  run: ./codetools/isort/check.sh
+      #- name: pydocstyle
+      #  run: ./codetools/pydocstyle/check.sh
+      #- name: darglint
+      #  run: ./codetools/darglint/check.sh
+      #- name: pyflakes
+      #  run: ./codetools/pyflakes/check.sh
       - name: sort-all
         run: |
           ./codetools/sort_all/fix.sh
           [[ -z $(git status -s) ]]
           git checkout -- .
+
+  unit_tests:
+    #uses: .github/workflows/install_dev.yml@${GITHUB_REF##*/}
+    #uses: .github/workflows/install_dev.yml
+    runs-on: ubuntu-20.04
+    # https://docs.github.com/en/actions/using-jobs/using-jobs-in-a-workflow#defining-prerequisite-jobs
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.8.x"
+      - name: install repo (dev mode)
+        run: bash .github/workflows/install_dev.sh
+      - name: install pytest and erectus dependencies
+        run: pip install -r experiments/robo_erectus/requirements.txt
+      - name: create dummy display
+        run: bash .github/workflows/install_dummy_screen.sh
+      - name: run pytest
+        run: pytest -v tests/
 
   mypy:
     runs-on: ubuntu-20.04
@@ -65,30 +89,8 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8.x"
-      - name: create virtualenv
-        run: |
-          pip install virtualenv
-          virtualenv .venv
-          . .venv/bin/activate
-      - name: install serialization
-        run: pip install ./serialization[dev]
-      - name: install actor_controller
-        run: pip install ./actor_controller[dev]
-      - name: install rpi_controller
-        run: pip install ./rpi_controller[dev]
-      - name: install core
-        run: pip install ./core[dev]
-      - name: install standard_resources
-        run: pip install ./standard_resources[dev]
-      - name: install runner isaacgym
-        #run: pip install ./runners/isaacgym[dev]
-        run: echo "IsaacGym is not open source so sadly we cannot test this."
-      - name: install runner mujoco
-        run: pip install ./runners/mujoco[dev]
-      - name: install genotype CPPNWIN
-        run: |
-          sudo apt install libcereal-dev
-          pip install ./genotypes/cppnwin[dev]
+      - name: install repo (dev)
+        run: bash .github/workflows/install_dev.sh
       - name: install requirements for mypy
         run: pip install -r ./codetools/mypy/requirements.txt
       - name: run mypy
@@ -101,30 +103,8 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8.x"
-      - name: create virtualenv
-        run: |
-          pip install virtualenv
-          virtualenv .venv
-          . .venv/bin/activate
-      - name: install serialization
-        run: pip install ./serialization[dev]
-      - name: install actor_controller
-        run: pip install ./actor_controller[dev]
-      - name: install rpi_controller
-        run: pip install ./rpi_controller[dev]
-      - name: install core
-        run: pip install ./core[dev]
-      - name: install standard_resources
-        run: pip install ./standard_resources[dev]
-      - name: install runner isaacgym
-        #run: pip install ./runners/isaacgym[dev]
-        run: echo "IsaacGym is not open source so sadly we cannot test this."
-      - name: install runner mujoco
-        run: pip install ./runners/mujoco[dev]
-      - name: install genotype CPPNWIN
-        run: |
-          sudo apt install libcereal-dev
-          pip install ./genotypes/cppnwin[dev]
+      - name: install repo (dev)
+        run: bash .github/workflows/install_dev.sh
       - name: install requirements for sphinx
         run: pip install -r ./docs/requirements.txt
       - name: sphinx

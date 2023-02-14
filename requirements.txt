@@ -1,1 +1,4 @@
 greenlet
+wandb
+joblib
+opencv-python

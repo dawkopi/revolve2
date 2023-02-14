@@ -1,0 +1,90 @@
+---
+id: humanoid
+body: 
+  type: Core
+  children:
+    0: # head
+      type: ActiveHinge
+      orientation: 0
+      children:
+        0:
+          type: Brick
+    1: # right arm
+      type: ActiveHinge
+      orientation: 90
+      children:
+        0:
+          type: Brick
+          orientation: 90
+          children:
+            2:
+              type: ActiveHinge
+              orientation: 0
+              children:
+                0:
+                  type: Brick          
+    3: # left arm
+      type: ActiveHinge
+      orientation: 90
+      children:
+        0:
+          type: Brick
+          orientation: -90
+          children:
+            2:
+              type: ActiveHinge
+              orientation: 0
+              children:
+                0:
+                  type: Brick
+    2: # body
+      type: ActiveHinge
+      orientation: 0
+      children:
+        0:
+          type: Brick
+          children:
+            0:
+              type: ActiveHinge
+              orientation: 90
+              children:
+                0:
+                  type: Brick
+                  orientation: 90
+                  children:
+                    1: # left leg
+                      type: ActiveHinge
+                      orientation: 90
+                      children:
+                        0:
+                          type: Brick
+                          orientation: 90
+                          children:
+                            1:
+                              type: ActiveHinge
+                              orientation: 0
+                              children:
+                                0:
+                                  type: Brick
+                                  children:
+                                    0:
+                                      type: Brick
+                                      orientation: 0
+                    2: # right leg
+                      type: ActiveHinge
+                      orientation: 90
+                      children:
+                        0:
+                          type: Brick
+                          orientation: -90
+                          children:
+                            1:
+                              type: ActiveHinge
+                              orientation: 0
+                              children:
+                                0:
+                                  type: Brick
+                                  children:
+                                    0:
+                                      type: Brick
+                                      orientation: 0
