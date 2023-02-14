@@ -32,7 +32,7 @@ body:
                                   children    :
                                     0:
                                       type        : ActiveHinge
-                                      orientation: 90
+                                      orientation: 0
                                       children    :
                                         0:
                                           type        : Brick
@@ -58,7 +58,7 @@ body:
                                   children    :
                                     0:
                                       type        : ActiveHinge
-                                      orientation: 90
+                                      orientation: 0
                                       children    :
                                         0:
                                           type        : Brick

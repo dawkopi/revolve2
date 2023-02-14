@@ -5,18 +5,22 @@ body:
   children:
     0: # for Core module, 0-front, 1-right, 2-back, 3-left
       type: ActiveHinge
+      orientation: 90
       children:
         0: 
           type: ActiveHinge
+          orientation: 90
           children:
             0: 
               type: Core
               children:
                 1: 
                   type: ActiveHinge
+                  orientation: 90
                   children:
                     0: 
                       type: ActiveHinge
+                      orientation: 90
                       children:
                         0: 
                           type: Brick
@@ -26,9 +30,11 @@ body:
                               children:
                                 0: 
                                   type: ActiveHinge
+                                  orientation: 90
                                   children:
                                     0: 
                                       type: ActiveHinge
+                                      orientation: 90
                                       children:
                                         0: 
                                           type: Brick
@@ -41,9 +47,11 @@ body:
 
                 3: 
                   type: ActiveHinge
+                  orientation: 90
                   children:
                     0: 
                       type: ActiveHinge
+                      orientation: 90
                       children:
                         0: 
                           type: Brick
@@ -53,9 +61,11 @@ body:
                               children:
                                 0: 
                                   type: ActiveHinge
+                                  orientation: 90
                                   children:
                                     0: 
                                       type: ActiveHinge
+                                      orientation: 90
                                       children:
                                         0: 
                                           type: Brick

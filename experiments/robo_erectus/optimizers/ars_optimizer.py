@@ -10,17 +10,20 @@ import wandb
 from measures import *
 from optimizer import Optimizer
 from .ars.ars import ARSLearner
+from typing import Optional, Dict
 
 
 class ArsOptimizer(Optimizer):
+    # partial dict of params to override defaults
+    override_params: Optional[Dict] = None
+
     def init_optimizer(self, param):
         Genotype = param[1]
         evaluate_func = param[2]
-        logging.info(f"Initalizing ARS...")
 
-        params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resamples
-            "n_directions": 64,  # evolve direction
-            "deltas_used": 64,
+        params = {  # was working well for 64,64 + 4 resamples and 8,4 + 8 resampless
+            "n_directions": 64,  # evolve direction (like number of children / 2)
+            "deltas_used": 64,  # like how many survivors
             "step_size": 0.02,  # evolve step size
             "delta_std": 0.03,
             "n_workers": 1,  # number of cpus
@@ -29,9 +32,15 @@ class ArsOptimizer(Optimizer):
             "seed": 237,
             "policy_type": "linear",
             "dir_path": "data",
-            # "filter": "NoFilter",
-            "filter": "MeanStdFilter",
+            "filter": "NoFilter",
+            # "filter": "MeanStdFilter", # Dawid worries about how well this is implemented for us / if its necessary
         }
+        if self.override_params != None:
+            for key in self.override_params:
+                assert key in params.keys()
+                params[key] = self.override_params[key]
+
+        logging.info(f"Initalizing ARS... params=\n{params}")
 
         dir_path = params["dir_path"]
 
@@ -131,6 +140,7 @@ class ArsOptimizer(Optimizer):
 
         wandb.log(
             {
+                "sim_step": self._unique_sim_steps,
                 "steps_max": max(steps),
                 "steps_avg": sum(steps) / len(steps),
                 "steps_min": min(steps),

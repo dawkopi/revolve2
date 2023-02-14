@@ -5,7 +5,7 @@ import glob
 import logging
 import subprocess
 import numpy as np
-from random import Random
+import random
 
 from revolve2.core.database import open_async_database_sqlite
 from revolve2.core.optimization import ProcessIdGen
@@ -27,21 +27,37 @@ async def main() -> None:
     """Run the optimization process."""
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--run_name", type=str, default="default")
+    parser.add_argument("--group_name", type=str, default="default")
     parser.add_argument("-l", "--resume_latest", action="store_true")
     parser.add_argument("-r", "--resume", action="store_true")
-    parser.add_argument("--rng_seed", type=int, default=420)
+    parser.add_argument("--rng_seed", type=int, default=None)
     parser.add_argument("--num_initial_mutations", type=int, default=10)
     parser.add_argument("-t", "--simulation_time", type=int, default=10)
     parser.add_argument("--sampling_frequency", type=float, default=10)
     parser.add_argument("--control_frequency", type=float, default=60)
-    parser.add_argument("-p", "--population_size", type=int, default=10)
+    parser.add_argument(
+        "-p",
+        "--population_size",
+        type=int,
+        default=10,
+        help="population size (but if using -ars this sets n_directions instead)",
+    )
     parser.add_argument("-o", "--offspring_size", type=int, default=None)
     parser.add_argument("-g", "--num_generations", type=int, default=50)
+    parser.add_argument(
+        "-ms",
+        "--max_steps",
+        type=float,
+        default=None,
+        help="max steps (in millions e.g. 2.5)",
+    )
     parser.add_argument("-w", "--wandb", action="store_true")
     parser.add_argument("--wandb_os_logs", action="store_true")
     parser.add_argument("-d", "--debug", action="store_true")
     parser.add_argument("-cpu", "--n_jobs", type=int, default=1)
-    parser.add_argument("-s", "--samples", type=int, default=1)
+    parser.add_argument("-s", "--samples", type=int, default=4)
+    parser.add_argument("--sigma0", type=float, default=0.2, help="param for CMA")
+    parser.add_argument("--step_size", type=float, default=0.02, help="param for ARS")
     parser.add_argument(
         "-m",
         "--morphology",
@@ -87,6 +103,9 @@ async def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.rng_seed is None:
+        args.rng_seed = random.randint(0, 999999)
+
     body_name = args.morphology
     assert body_name in MORPHOLOGIES, "morphology must exist"
     ensure_dirs(DATABASE_PATH)
@@ -105,6 +124,7 @@ async def main() -> None:
 
     wandb.init(
         mode="online" if args.wandb else "disabled",
+        group=args.group_name,
         project="robo-erectus",
         entity="ea-research",
         config=vars(args),
@@ -128,42 +148,47 @@ async def main() -> None:
     )
 
     # random number generator
-    rng = Random()
+    rng = random.Random()
     rng.seed(args.rng_seed)
+    print(f"using random seed {args.rng_seed}")
 
     # process id generator
     process_id_gen = ProcessIdGen()
     process_id = process_id_gen.gen()
 
+    ars_directions = None
     if args.use_cma:
         Optimizer = CmaEsOptimizer
-        logging.info(
-            "CMA-ES start from an original individual, population size will be ignored."
-        )
-        args.population_size = 1
+        # logging.info(
+        #     "CMA-ES start from an original individual, population size will be ignored."
+        # )
+        # args.population_size = 1
 
     elif args.use_ars:
         Optimizer = ArsOptimizer
         logging.info(
             "Ars start from an original individual, population size will be stay at 1"
         )
+        ars_directions = int(args.population_size / 2)
         args.population_size = 1
         args.offspring_size = 1
     else:
         Optimizer = EaOptimzer
+
+    logging.info(f"using optimizer: {Optimizer}")
 
     logging.info(f"using body_name: {body_name}")
     initial_population = [
         LinearControllerGenotype.random(body_name) for _ in range(args.population_size)
     ]
 
-    if args.use_cma:
-        logging.info("CMA-ES self-adapt offspring size. (if not given)")
-        args.population_size = 1
-        if args.offspring_size is None:
-            N = initial_population[0].genotype.shape[0]
-            # self-adapted new generation size used in cma-es
-            args.offspring_size = int(4 + 3 * np.log(N))
+    # if args.use_cma:
+    #     logging.info("CMA-ES self-adapt offspring size. (if not given)")
+    #     args.population_size = 1
+    #     if args.offspring_size is None:
+    #         N = initial_population[0].genotype.shape[0]
+    #         # self-adapted new generation size used in cma-es
+    #         args.offspring_size = int(4 + 3 * np.log(N))
 
     # this if statement must be used after 'if args.use_cma:'
     if args.offspring_size is None:
@@ -207,13 +232,34 @@ async def main() -> None:
             body_name=body_name,
         )
 
-    logging.info("Starting optimization process...")
-
     optimizer.n_jobs = args.n_jobs
     optimizer.samples = args.samples
+    if isinstance(optimizer, ArsOptimizer):
+        optimizer.override_params = {
+            "n_directions": ars_directions,
+            "deltas_used": ars_directions,
+            "step_size": args.step_size,
+            "seed": args.rng_seed,
+        }
+    if isinstance(optimizer, CmaEsOptimizer):
+        optimizer.sigma0 = args.sigma0
+    if args.max_steps is not None:
+        args.max_steps = int(args.max_steps * 1_000_000)
+        optimizer._max_sim_steps = args.max_steps
+    max_steps_str = f"{args.max_steps:,}" if args.max_steps is not None else "None"
+
+    logging.info(
+        f"Starting optimization process (max generations={args.num_generations:,}, max steps={max_steps_str})..."
+    )
     await optimizer.run()
 
-    logging.info("Finished optimizing.")
+    logging.info(
+        f"Finished optimizing. (reached generation {optimizer.generation_index}/{args.num_generations}, sim step {optimizer._unique_sim_steps:,}/{max_steps_str})"
+    )
+    logging.info(f"database_dir = '{database_dir}'\n")
+
+    if args.wandb:
+        upload_db(database_dir)
 
     if not args.skip_best:
         logging.info("\n\nrunning rerun_best.py")
@@ -234,9 +280,23 @@ async def main() -> None:
             logging.info(f"found {len(fnames)} files to upload to wandb...")
             [wandb.save(fname) for fname in fnames]
 
-    if args.wandb:
-        # TODO: upload compressed database!
-        pass
+
+def upload_db(db_dir: str):
+    """Compress db.sqlite -> dq.sqlite.tgz and upload to wandb."""
+    tmp_file = os.path.join(db_dir, "db.sqlite.tgz")
+    cmd = [
+        "tar",
+        "-cvzf",
+        tmp_file,
+        os.path.join(db_dir, "db.sqlite"),
+    ]
+    res = subprocess.run(cmd, stdout=subprocess.PIPE)
+    if res.returncode != 0:
+        logging.error(f"rerun_best.py failed with code {res.returncode}")
+    else:
+        wandb.save(tmp_file)
+        logging.info(f"uploaded compressed db to wandb: '{tmp_file}'")
+        # os.remove(tmp_file) # causes wandb.save() to fail
 
 
 def call_rerun_best(run_name: str, dur_sec: int = 30, count: int = 1):
